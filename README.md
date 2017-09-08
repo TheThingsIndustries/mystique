@@ -1,6 +1,6 @@
 # Mystique
 
-[![Build Status](https://travis-ci.org/TheThingsIndustries/mystique.svg?branch=master)](https://travis-ci.org/TheThingsIndustries/mystique) [![Coverage Status](https://coveralls.io/repos/github/TheThingsIndustries/mystique/badge.svg?branch=master)](https://coveralls.io/github/TheThingsIndustries/mystique?branch=master) [![GoDoc](https://godoc.org/github.com/TheThingsIndustries/mystique?status.svg)](https://godoc.org/github.com/TheThingsIndustries/mystique)
+[![Build Status](https://travis-ci.com/TheThingsIndustries/mystique.svg?token=1QaLXVRDNDzteUYgpS8B&branch=master)](https://travis-ci.com/TheThingsIndustries/mystique) [![GoDoc](https://godoc.org/github.com/TheThingsIndustries/mystique?status.svg)](https://godoc.org/github.com/TheThingsIndustries/mystique)
 
 Mystique is a library that implements MQTT.
 

@@ -1,0 +1,4 @@
+[[constraint]]
+  branch = "ttn-master"
+  name = "github.com/TheThingsNetwork/ttn"
+  source = "https://github.com/TheThingsIndustries/ttn.git"

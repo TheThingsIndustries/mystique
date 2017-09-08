@@ -1,0 +1,22 @@
+language: go
+
+go:
+- 1.9
+
+go_import_path: github.com/TheThingsIndustries/mystique
+
+cache:
+  directories:
+  - vendor
+
+before_install:
+- echo "machine github.com login ${GITHUB_ACCESS_TOKEN}" >> ~/.netrc
+- go get -u github.com/golang/dep/cmd/dep
+
+install:
+- dep ensure -v -vendor-only
+
+script:
+- make test
+- make vet
+- make fmt
