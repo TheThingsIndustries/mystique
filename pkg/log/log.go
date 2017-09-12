@@ -3,20 +3,33 @@
 // Package log defines the MQTT log interface.
 package log
 
-import (
-	"context"
+// Fielder is the interface for anything that can have fields.
+type Fielder interface {
+	Fields() map[string]interface{}
+}
 
-	"github.com/TheThingsNetwork/ttn/pkg/log"
-)
+// Interface is the interface for logging.
+type Interface interface {
+	Debug(msg string)
+	Info(msg string)
+	Warn(msg string)
+	Error(msg string)
+	Fatal(msg string)
+	Debugf(msg string, v ...interface{})
+	Infof(msg string, v ...interface{})
+	Warnf(msg string, v ...interface{})
+	Errorf(msg string, v ...interface{})
+	Fatalf(msg string, v ...interface{})
+	WithField(string, interface{}) Interface
+	WithFields(Fielder) Interface
+	WithError(error) Interface
+}
 
-// Fielder alias
-type Fielder = log.Fielder
+type F map[string]interface{}
 
-// Interface alias
-type Interface = log.Interface
+func (f F) Fields() map[string]interface{} {
+	return f
+}
 
-// Fields calls log.Fields
-func Fields(pairs ...interface{}) Fielder { return log.Fields(pairs...) }
-
-// FromContext calls log.FromContext
-func FromContext(ctx context.Context) Interface { return log.Ensure(log.FromContext(ctx)) }
+// Fields returns a Fielder
+func Fields(f map[string]interface{}) Fielder { return F(f) }

@@ -41,7 +41,7 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 	s.connect = pkt
 	s.authinfo = authInfo
 
-	s.logger = s.logger.WithFields(log.Fields("client_id", authInfo.ClientID, "remote_addr", conn.RemoteAddr().String()))
+	s.logger = s.logger.WithFields(log.F{"client_id": authInfo.ClientID, "remote_addr": conn.RemoteAddr().String()})
 	if authInfo.Username != "" {
 		s.logger = s.logger.WithField("username", authInfo.Username)
 	}
@@ -134,7 +134,7 @@ func (s *serverSession) HandleSubscribe(pkt *packet.SubscribePacket) (*packet.Su
 			logger = logger.WithField("topic_original", topic)
 		}
 		if s.subscriptions.Add(acceptedTopic, qos) {
-			logger.WithFields(log.Fields("topic", acceptedTopic, "qos", qos)).Info("Subscribe")
+			logger.WithFields(log.F{"topic": acceptedTopic, "qos": qos}).Info("Subscribe")
 		}
 		response.ReturnCodes[i] = qos
 	}
@@ -145,7 +145,7 @@ func (s *serverSession) HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packe
 	response := pkt.Response()
 	for _, topic := range pkt.Topics {
 		if s.subscriptions.Remove(topic) {
-			s.logger.WithFields(log.Fields("topic", topic)).Info("Unsubscribe")
+			s.logger.WithField("topic", topic).Info("Unsubscribe")
 		}
 	}
 	return response, nil

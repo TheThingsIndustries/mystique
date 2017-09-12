@@ -2,13 +2,6 @@
 
 
 [[projects]]
-  branch = "ttn-master"
-  name = "github.com/TheThingsNetwork/ttn"
-  packages = ["pkg/log"]
-  revision = "68eb38ad6f5f698b8d99884ef834a1b1b75bfe76"
-  source = "https://github.com/TheThingsIndustries/ttn.git"
-
-[[projects]]
   branch = "master"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -56,15 +49,9 @@
   revision = "9c0ea8acbc1d8ad689f9e6fe0c1fa5838e0cabc2"
   version = "1.7.0"
 
-[[projects]]
-  branch = "master"
-  name = "github.com/smartystreets/gunit"
-  packages = ["."]
-  revision = "d235ada78c0707a08798236d7bd0ba99574c79f5"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e9a9762fb83f133a31afae983970a8f12f579c83c054f12e02d3ffc99880c706"
+  inputs-digest = "821445774d5dbc96acb80e516617d93f08a892f05e53a77e3548d8ca07cc1297"
   solver-name = "gps-cdcl"
   solver-version = 1

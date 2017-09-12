@@ -5,8 +5,8 @@ package session
 import (
 	"testing"
 
+	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
-	"github.com/TheThingsNetwork/ttn/pkg/log"
 	"github.com/smartystreets/assertions"
 	"github.com/smartystreets/assertions/should"
 )
@@ -14,8 +14,8 @@ import (
 func TestPublishingQoS0(t *testing.T) {
 	a := assertions.New(t)
 
-	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Ensure(nil)}
-	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Ensure(nil)}
+	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
+	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
 
 	msg := &packet.PublishPacket{
 		TopicName: "foo",
@@ -41,8 +41,8 @@ func TestPublishingQoS0(t *testing.T) {
 func TestPublishingQoS1(t *testing.T) {
 	a := assertions.New(t)
 
-	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Ensure(nil)}
-	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Ensure(nil)}
+	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
+	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
 
 	msg := &packet.PublishPacket{
 		TopicName: "foo",
@@ -79,8 +79,8 @@ func TestPublishingQoS1(t *testing.T) {
 func TestPublishingQoS2(t *testing.T) {
 	a := assertions.New(t)
 
-	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Ensure(nil)}
-	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Ensure(nil)}
+	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
+	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
 
 	msg := &packet.PublishPacket{
 		TopicName: "foo",

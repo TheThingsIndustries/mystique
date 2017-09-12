@@ -16,7 +16,7 @@ func (s *session) Publish(pkt *packet.PublishPacket) {
 		pkt.PacketIdentifier = uint16(s.publishIdentifier)
 		s.pendingOut.Add(pkt.PacketIdentifier, pkt)
 	}
-	logger := s.logger.WithFields(log.Fields("topic", pkt.TopicName, "size", len(pkt.Message), "qos", pkt.QoS))
+	logger := s.logger.WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS})
 	select {
 	case s.publishOut <- pkt:
 		logger.Debug("Publish message")

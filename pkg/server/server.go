@@ -109,7 +109,7 @@ func (s *server) Handle(conn net.Conn) {
 	// deliverLoop
 	go func() {
 		for msg := range session.DeliveryChan() {
-			logger.WithFields(log.Fields("topic", msg.TopicName, "size", len(msg.Message), "qos", msg.QoS)).Info("Publish message")
+			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Info("Publish message")
 			s.sessions.Publish(msg)
 		}
 	}()
