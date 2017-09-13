@@ -98,18 +98,25 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 	}
 	access.ReadPrefix = info.Username
 
-	if appRights, err := a.applicationRights(info.Username, string(info.Password)); err == nil {
-		for _, right := range appRights {
-			switch right {
-			case "messages:up:r":
-				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/up$"))
-				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/events$"))
-				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events$"))
-			case "messages:down:w":
-				access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/down$"))
-			}
+	appRights, err := a.applicationRights(info.Username, string(info.Password))
+	if err != nil {
+		return packet.ConnectServerUnavailable
+	}
+	for _, right := range appRights {
+		switch right {
+		case "messages:up:r":
+			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/up$"))
+			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/events$"))
+			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events$"))
+		case "messages:down:w":
+			access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/down$"))
 		}
-	} else if _, err := a.gatewayRights(info.Username, string(info.Password)); err == nil {
+	}
+	gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
+	if err != nil {
+		return packet.ConnectServerUnavailable
+	}
+	if len(gtwRights) > 0 {
 		access.Write = append(access.Write, info.Username+"/up")
 		access.Read = append(access.Read, info.Username+"/down")
 		access.Write = append(access.Write, info.Username+"/status")
