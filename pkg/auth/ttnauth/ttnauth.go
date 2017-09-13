@@ -20,9 +20,9 @@ import (
 )
 
 // New returns a new auth interface that uses the TTN account server
-func New(server string, rootUsername string, rootPassword []byte) auth.Interface {
+func New(rootUsername string, rootPassword []byte, servers map[string]string) auth.Interface {
 	return &TTNAuth{
-		server:       server,
+		servers:      servers,
 		rootUsername: rootUsername,
 		rootPassword: rootPassword,
 	}
@@ -30,7 +30,7 @@ func New(server string, rootUsername string, rootPassword []byte) auth.Interface
 
 // TTNAuth implements authentication for TTN
 type TTNAuth struct {
-	server       string
+	servers      map[string]string
 	rootUsername string
 	rootPassword []byte
 }
@@ -53,7 +53,15 @@ func (a Access) IsEmpty() bool {
 var idPattern = regexp.MustCompile("^[0-9a-z](?:[_-]?[0-9a-z]){1,35}$")
 
 func (a *TTNAuth) rights(entity, id, key string) (rights []string, err error) {
-	req, err := http.NewRequest("GET", a.server+fmt.Sprintf("/api/v2/%s/%s/rights", entity, id), nil)
+	keyParts := strings.SplitN(key, ".", 2)
+	if len(keyParts) != 2 {
+		return nil, errors.New("invalid access key")
+	}
+	server, ok := a.servers[keyParts[0]]
+	if !ok {
+		return nil, fmt.Errorf("identity server %s not found", keyParts[0])
+	}
+	req, err := http.NewRequest("GET", server+fmt.Sprintf("/api/v2/%s/%s/rights", entity, id), nil)
 	if err != nil {
 		return nil, err
 	}
