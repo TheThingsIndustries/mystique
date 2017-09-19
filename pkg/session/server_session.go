@@ -27,11 +27,12 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 		if s.connect.Username != pkt.Username { // check that username matches
 			return nil, packet.ConnectIdentifierRejected
 		}
-		s.logger.Debug("Session takeover")
 		if s.publishOut != nil { // existing session still connected; close that
+			s.logger.Debug("Kick old connection")
 			s.close()
 		}
 		if pkt.CleanStart { // want a clean session; reset state
+			s.logger.Debug("Clean old session")
 			s.clear()
 		} else {
 			response.SessionPresent = true

@@ -93,8 +93,10 @@ func (s *server) Handle(conn net.Conn) {
 
 	defer func() {
 		if session.IsGarbage() {
-			logger.Info("Delete Session")
+			logger.Info("End session")
 			s.sessions.Delete(sessionID) // session.ID() is already empty at this point
+		} else {
+			logger.Info("Detach session")
 		}
 	}()
 
@@ -337,7 +339,11 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		return
 	}
 
-	logger.Info("Start session")
+	if response.SessionPresent {
+		logger.Info("Attach session")
+	} else {
+		logger.Info("Start session")
+	}
 	connectCounter.WithLabelValues("accepted").Inc()
 
 	// Send the connack
