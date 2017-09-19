@@ -239,8 +239,8 @@ func (s *server) Handle(conn net.Conn) {
 			return
 		case pkt, ok := <-control:
 			if !ok {
-				kicked = true
-				return
+				control = nil
+				continue
 			}
 			err = conn.Send(pkt)
 		case pkt, ok := <-publish:
