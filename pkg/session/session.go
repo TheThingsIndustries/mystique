@@ -196,5 +196,5 @@ func (s *session) IsGarbage() (isGarbage bool) {
 	s.mu.RLock()
 	isGarbage = s.connect == nil
 	s.mu.RUnlock()
-	return false
+	return
 }
