@@ -3,6 +3,8 @@
 // Package auth defines the authentication interface for MQTT.
 package auth
 
+import "errors"
+
 // Interface for MQTT authentication
 type Interface interface {
 	// Connect or return error code
@@ -31,6 +33,9 @@ type Info struct {
 
 // Subscribe to the requested topic and QoS, which can be adapted by the auth plugin
 func (i *Info) Subscribe(requestedTopic string, requestedQoS byte) (acceptedTopic string, acceptedQoS byte, err error) {
+	if i == nil {
+		return requestedTopic, requestedQoS, errors.New("no auth info present")
+	}
 	if i.Interface == nil {
 		return requestedTopic, requestedQoS, nil
 	}
@@ -39,6 +44,9 @@ func (i *Info) Subscribe(requestedTopic string, requestedQoS byte) (acceptedTopi
 
 // CanRead returns true iff given the info, the client can read on a topic
 func (i *Info) CanRead(topic string) bool {
+	if i == nil {
+		return false // won't allow that if there's no auth info
+	}
 	if i.Interface == nil {
 		return true
 	}
@@ -47,6 +55,9 @@ func (i *Info) CanRead(topic string) bool {
 
 // CanWrite returns true iff given the info, the client can write on a topic
 func (i *Info) CanWrite(topic string) bool {
+	if i == nil {
+		return false // won't allow that if there's no auth info
+	}
 	if i.Interface == nil {
 		return true
 	}
