@@ -38,9 +38,11 @@ func (r *retainedMessages) Retain(pkt *packet.PublishPacket) {
 	if !pkt.Retain {
 		return
 	}
+	pkt.Retain = false // Unset retain flag on original message
 	r.mu.Lock()
 	if len(pkt.Message) > 0 {
 		retained := *pkt
+		retained.Retain = true // Set retain flag on message copy
 		r.messages[pkt.TopicName] = &retained
 		retainedGauge.Inc()
 	} else if _, ok := r.messages[pkt.TopicName]; ok {

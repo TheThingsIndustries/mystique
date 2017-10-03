@@ -147,7 +147,6 @@ func (s *server) Handle(conn net.Conn) {
 				logger.Debug("Read PUBLISH")
 				receivedCounter.WithLabelValues("publish").Inc()
 				s.retainedMessages.Retain(pkt)
-				pkt.Retain = false
 				response, err = session.HandlePublish(pkt)
 			case *packet.PubackPacket:
 				logger.Debug("Read PUBACK")
@@ -359,7 +358,6 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 
 	// Send retained messages
 	for _, pkt := range s.retainedMessages.Get(session.Subscriptions()...) {
-		pkt.Retain = true
 		session.Publish(pkt)
 	}
 
