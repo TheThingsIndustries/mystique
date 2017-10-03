@@ -22,6 +22,7 @@ import (
 // New returns a new auth interface that uses the TTN account server
 func New(rootUsername string, rootPassword []byte, servers map[string]string) auth.Interface {
 	return &TTNAuth{
+		client:       http.DefaultClient,
 		servers:      servers,
 		rootUsername: rootUsername,
 		rootPassword: rootPassword,
@@ -30,6 +31,7 @@ func New(rootUsername string, rootPassword []byte, servers map[string]string) au
 
 // TTNAuth implements authentication for TTN
 type TTNAuth struct {
+	client       *http.Client
 	servers      map[string]string
 	rootUsername string
 	rootPassword []byte
@@ -66,7 +68,7 @@ func (a *TTNAuth) rights(entity, id, key string) (rights []string, err error) {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Key "+key)
-	res, err := http.DefaultClient.Do(req)
+	res, err := a.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +144,9 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 // Subscribe allows the auth plugin to replace wildcards or to lower the QoS of a subscription.
 // For example, a client requesting a subscription to "#" may be rewritten to "foo/#" if they are only allowed to subscribe to that topic.
 func (a *TTNAuth) Subscribe(info *auth.Info, requestedTopic string, requestedQoS byte) (acceptedTopic string, acceptedQoS byte, err error) {
+	if info.Metadata == nil {
+		return acceptedTopic, acceptedQoS, errors.New("No auth metadata present")
+	}
 	acceptedTopic = requestedTopic
 	acceptedQoS = requestedQoS
 	access := info.Metadata.(*Access)
@@ -167,6 +172,9 @@ func (a *TTNAuth) Subscribe(info *auth.Info, requestedTopic string, requestedQoS
 
 // CanRead returns true iff the session can read from the topic
 func (a *TTNAuth) CanRead(info *auth.Info, topic string) bool {
+	if info.Metadata == nil {
+		return false
+	}
 	access := info.Metadata.(*Access)
 	if access.Root {
 		return true
@@ -186,6 +194,9 @@ func (a *TTNAuth) CanRead(info *auth.Info, topic string) bool {
 
 // CanWrite returns true iff the session can write to the topic
 func (a *TTNAuth) CanWrite(info *auth.Info, topic string) bool {
+	if info.Metadata == nil {
+		return false
+	}
 	access := info.Metadata.(*Access)
 	if access.Root {
 		return true
