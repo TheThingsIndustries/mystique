@@ -17,7 +17,7 @@ func FromContext(ctx context.Context) Interface {
 			return logger
 		}
 	}
-	return &noop{}
+	return Noop
 }
 
 // NewContext returns a new context that contains the logger
