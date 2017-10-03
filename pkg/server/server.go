@@ -27,20 +27,12 @@ func WithAuth(auth auth.Interface) Option {
 
 // WithSessionStore returns an option that sets store for sessions
 func WithSessionStore(sess session.Store) Option {
-	return func(s *server) {
-		if sess != nil {
-			s.sessions = sess
-		}
-	}
+	return func(s *server) { s.sessions = sess }
 }
 
 // WithRetainedMessagesStore returns an option that sets the store for retained messages
 func WithRetainedMessagesStore(store retained.Store) Option {
-	return func(s *server) {
-		if store != nil {
-			s.retainedMessages = store
-		}
-	}
+	return func(s *server) { s.retainedMessages = store }
 }
 
 // Server interface
