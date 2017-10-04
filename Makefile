@@ -15,3 +15,6 @@ vet:
 
 fmt:
 	[[ -z `go fmt ./... | tee -a /dev/stderr` ]]
+
+dev-cert:
+	go run $$(go env GOROOT)/src/crypto/tls/generate_cert.go -ca -host localhost
