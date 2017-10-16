@@ -5,7 +5,7 @@
 // Usage: ttn-mqtt [options]
 //
 // Options:
-//         --auth.root.password string             Root password (default "root")
+//         --auth.root.password string             Root password (leave empty to disable user)
 //         --auth.root.username string             Root username (default "root")
 //         --auth.ttn.account-server stringSlice   TTN Account Servers (default [ttn-account-v2=https://account.thethingsnetwork.org])
 //     -d, --debug                                 Print debug logs
@@ -22,6 +22,7 @@ import (
 
 	"github.com/TheThingsIndustries/mystique"
 	"github.com/TheThingsIndustries/mystique/pkg/auth/ttnauth"
+	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/server"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -29,7 +30,8 @@ import (
 
 func main() {
 	pflag.String("auth.root.username", "root", "Root username")
-	pflag.String("auth.root.password", "root", "Root password")
+	pflag.String("auth.root.password", "", "Root password (leave empty to disable user)")
+
 	pflag.StringSlice("auth.ttn.account-server", []string{
 		"ttn-account-v2=https://account.thethingsnetwork.org",
 	}, "TTN Account Servers")
@@ -46,13 +48,17 @@ func main() {
 		accountServers[parts[0]] = parts[1]
 	}
 
-	s := server.New(mystique.Context(), server.WithAuth(
-		ttnauth.New(
-			viper.GetString("auth.root.username"),
-			[]byte(viper.GetString("auth.root.password")),
-			accountServers,
-		),
-	))
+	auth := ttnauth.New(accountServers)
+
+	rootUsername, rootPassword := viper.GetString("auth.root.username"), viper.GetString("auth.root.password")
+	if rootUsername != "" && rootPassword != "" {
+		if rootUsername == rootPassword {
+			log.FromContext(mystique.Context()).Warn("You are using insecure root credentials, use the --auth.root.username and --auth.root.password arguments to change them")
+		}
+		auth.AddSuperUser(rootUsername, []byte(rootPassword), ttnauth.Access{Root: true})
+	}
+
+	s := server.New(mystique.Context(), server.WithAuth(auth))
 
 	mystique.RunServer(s)
 }

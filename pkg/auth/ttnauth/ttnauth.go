@@ -23,21 +23,32 @@ import (
 const IDRegexp = "[0-9a-z](?:[_-]?[0-9a-z]){1,35}"
 
 // New returns a new auth interface that uses the TTN account server
-func New(rootUsername string, rootPassword []byte, servers map[string]string) auth.Interface {
+func New(servers map[string]string) *TTNAuth {
 	return &TTNAuth{
-		client:       http.DefaultClient,
-		servers:      servers,
-		rootUsername: rootUsername,
-		rootPassword: rootPassword,
+		client:     http.DefaultClient,
+		servers:    servers,
+		superUsers: make(map[string]superUser),
 	}
 }
 
 // TTNAuth implements authentication for TTN
 type TTNAuth struct {
-	client       *http.Client
-	servers      map[string]string
-	rootUsername string
-	rootPassword []byte
+	client     *http.Client
+	servers    map[string]string
+	superUsers map[string]superUser
+}
+
+// AddSuperUser adds a super-user to the auth plugin
+func (a *TTNAuth) AddSuperUser(username string, password []byte, access Access) {
+	a.superUsers[username] = superUser{
+		password: password,
+		Access:   access,
+	}
+}
+
+type superUser struct {
+	password []byte
+	Access
 }
 
 // Access information
@@ -101,8 +112,11 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 	info.Metadata = &access
 	info.Interface = a
 
-	if info.Username == a.rootUsername && subtle.ConstantTimeCompare(info.Password, a.rootPassword) == 1 {
-		access.Root = true
+	if superUser, ok := a.superUsers[info.Username]; ok {
+		if subtle.ConstantTimeCompare(info.Password, superUser.password) != 1 {
+			return packet.ConnectNotAuthorized
+		}
+		access = superUser.Access
 		return nil
 	}
 
