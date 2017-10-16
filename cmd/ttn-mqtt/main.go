@@ -49,6 +49,8 @@ func main() {
 
 	mystique.Configure("ttn-mqtt")
 
+	logger := log.FromContext(mystique.Context())
+
 	serverSlice := viper.GetStringSlice("auth.ttn.account-server")
 	accountServers := make(map[string]string, len(serverSlice))
 	for _, server := range serverSlice {
@@ -64,7 +66,7 @@ func main() {
 	rootUsername, rootPassword := viper.GetString("auth.root.username"), viper.GetString("auth.root.password")
 	if rootUsername != "" && rootPassword != "" {
 		if rootUsername == rootPassword {
-			log.FromContext(mystique.Context()).Warn("You are using insecure root credentials, use the --auth.root.username and --auth.root.password arguments to change them")
+			logger.Warn("You are using insecure root credentials, use the --auth.root.username and --auth.root.password arguments to change them")
 		}
 		auth.AddSuperUser(rootUsername, []byte(rootPassword), ttnauth.Access{Root: true})
 	}
@@ -72,7 +74,7 @@ func main() {
 	routerUsername, routerPassword := viper.GetString("auth.router.username"), viper.GetString("auth.router.password")
 	if routerUsername != "" && routerPassword != "" {
 		if routerUsername == routerPassword {
-			log.FromContext(mystique.Context()).Warn("You are using insecure router credentials, use the --auth.router.username and --auth.router.password arguments to change them")
+			logger.Warn("You are using insecure router credentials, use the --auth.router.username and --auth.router.password arguments to change them")
 		}
 		auth.AddSuperUser(routerUsername, []byte(routerPassword), ttnauth.Access{
 			Read: []string{"connect", "disconnect"},
@@ -89,7 +91,7 @@ func main() {
 	handlerUsername, handlerPassword := viper.GetString("auth.handler.username"), viper.GetString("auth.handler.password")
 	if handlerUsername != "" && handlerPassword != "" {
 		if handlerUsername == handlerPassword {
-			log.FromContext(mystique.Context()).Warn("You are using insecure handler credentials, use the --auth.handler.username and --auth.handler.password arguments to change them")
+			logger.Warn("You are using insecure handler credentials, use the --auth.handler.username and --auth.handler.password arguments to change them")
 		}
 		auth.AddSuperUser(handlerUsername, []byte(handlerPassword), ttnauth.Access{
 			Read: []string{"connect", "disconnect"},
