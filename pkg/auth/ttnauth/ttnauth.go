@@ -19,6 +19,9 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
+// IDRegexp is the regular expression that matches TTN IDs
+const IDRegexp = "[0-9a-z](?:[_-]?[0-9a-z]){1,35}"
+
 // New returns a new auth interface that uses the TTN account server
 func New(rootUsername string, rootPassword []byte, servers map[string]string) auth.Interface {
 	return &TTNAuth{
@@ -115,11 +118,11 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 	for _, right := range appRights {
 		switch right {
 		case "messages:up:r":
-			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/up$"))
-			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/events$"))
-			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events$"))
+			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/up"))
+			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/events"))
+			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events"))
 		case "messages:down:w":
-			access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/[0-9a-z]+/down$"))
+			access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
 		}
 	}
 	gtwRights, err := a.gatewayRights(info.Username, string(info.Password))

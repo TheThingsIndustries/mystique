@@ -93,8 +93,18 @@ func TestTTNAuth(t *testing.T) {
 
 	a.So(app.CanRead("test/devices/test/up"), should.BeTrue)
 	a.So(app.CanRead("other/devices/test/up"), should.BeFalse)
+	a.So(app.CanRead("test/devices/test/up/temperature"), should.BeTrue)
+	a.So(app.CanRead("other/devices/test/up/temperature"), should.BeFalse)
+	a.So(app.CanRead("test/devices/test/events"), should.BeTrue)
+	a.So(app.CanRead("other/devices/test/events"), should.BeFalse)
+	a.So(app.CanRead("test/devices/test/events/downlink"), should.BeTrue)
+	a.So(app.CanRead("other/devices/test/events/downlink"), should.BeFalse)
 	a.So(app.CanWrite("test/devices/test/down"), should.BeTrue)
 	a.So(app.CanWrite("other/devices/test/down"), should.BeFalse)
+	a.So(app.CanRead("test/events"), should.BeTrue)
+	a.So(app.CanRead("other/events"), should.BeFalse)
+	a.So(app.CanRead("test/events/activate"), should.BeTrue)
+	a.So(app.CanRead("other/events/activate"), should.BeFalse)
 
 	{
 		_, _, err := app.Subscribe("root", 0)
