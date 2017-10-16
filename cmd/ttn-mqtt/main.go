@@ -5,8 +5,12 @@
 // Usage: ttn-mqtt [options]
 //
 // Options:
+//         --auth.handler.password string          Handler password (leave empty to disable user)
+//         --auth.handler.username string          Handler username (default "handler")
 //         --auth.root.password string             Root password (leave empty to disable user)
 //         --auth.root.username string             Root username (default "root")
+//         --auth.router.password string           Router password (leave empty to disable user)
+//         --auth.router.username string           Router username (default "router")
 //         --auth.ttn.account-server stringSlice   TTN Account Servers (default [ttn-account-v2=https://account.thethingsnetwork.org])
 //     -d, --debug                                 Print debug logs
 //         --listen.status string                  Address for status server to listen on (default ":6060")
@@ -18,6 +22,7 @@ package main
 
 import (
 	_ "net/http/pprof" // Add pprof handlers to the default http mux
+	"regexp"
 	"strings"
 
 	"github.com/TheThingsIndustries/mystique"
@@ -31,6 +36,12 @@ import (
 func main() {
 	pflag.String("auth.root.username", "root", "Root username")
 	pflag.String("auth.root.password", "", "Root password (leave empty to disable user)")
+
+	pflag.String("auth.router.username", "router", "Router username")
+	pflag.String("auth.router.password", "", "Router password (leave empty to disable user)")
+
+	pflag.String("auth.handler.username", "handler", "Handler username")
+	pflag.String("auth.handler.password", "", "Handler password (leave empty to disable user)")
 
 	pflag.StringSlice("auth.ttn.account-server", []string{
 		"ttn-account-v2=https://account.thethingsnetwork.org",
@@ -56,6 +67,41 @@ func main() {
 			log.FromContext(mystique.Context()).Warn("You are using insecure root credentials, use the --auth.root.username and --auth.root.password arguments to change them")
 		}
 		auth.AddSuperUser(rootUsername, []byte(rootPassword), ttnauth.Access{Root: true})
+	}
+
+	routerUsername, routerPassword := viper.GetString("auth.router.username"), viper.GetString("auth.router.password")
+	if routerUsername != "" && routerPassword != "" {
+		if routerUsername == routerPassword {
+			log.FromContext(mystique.Context()).Warn("You are using insecure router credentials, use the --auth.router.username and --auth.router.password arguments to change them")
+		}
+		auth.AddSuperUser(routerUsername, []byte(routerPassword), ttnauth.Access{
+			Read: []string{"connect", "disconnect"},
+			WritePattern: []*regexp.Regexp{
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/down$"),
+			},
+			ReadPattern: []*regexp.Regexp{
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/up$"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/status$"),
+			},
+		})
+	}
+
+	handlerUsername, handlerPassword := viper.GetString("auth.handler.username"), viper.GetString("auth.handler.password")
+	if handlerUsername != "" && handlerPassword != "" {
+		if handlerUsername == handlerPassword {
+			log.FromContext(mystique.Context()).Warn("You are using insecure handler credentials, use the --auth.handler.username and --auth.handler.password arguments to change them")
+		}
+		auth.AddSuperUser(handlerUsername, []byte(handlerPassword), ttnauth.Access{
+			Read: []string{"connect", "disconnect"},
+			WritePattern: []*regexp.Regexp{
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices" + ttnauth.IDRegexp + "/up$"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices" + ttnauth.IDRegexp + "/events$"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/events$"),
+			},
+			ReadPattern: []*regexp.Regexp{
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices" + ttnauth.IDRegexp + "/down$"),
+			},
+		})
 	}
 
 	s := server.New(mystique.Context(), server.WithAuth(auth))
