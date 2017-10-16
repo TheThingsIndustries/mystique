@@ -34,13 +34,13 @@ import (
 )
 
 func main() {
-	pflag.String("auth.root.username", "root", "Root username")
+	pflag.String("auth.root.username", "$root", "Root username")
 	pflag.String("auth.root.password", "", "Root password (leave empty to disable user)")
 
-	pflag.String("auth.router.username", "router", "Router username")
+	pflag.String("auth.router.username", "$router", "Router username")
 	pflag.String("auth.router.password", "", "Router password (leave empty to disable user)")
 
-	pflag.String("auth.handler.username", "handler", "Handler username")
+	pflag.String("auth.handler.username", "$handler", "Handler username")
 	pflag.String("auth.handler.password", "", "Handler password (leave empty to disable user)")
 
 	pflag.StringSlice("auth.ttn.account-server", []string{
@@ -63,8 +63,13 @@ func main() {
 
 	auth := ttnauth.New(accountServers)
 
+	ttnIDRegexp := regexp.MustCompile("^" + ttnauth.IDRegexp + "$")
+
 	rootUsername, rootPassword := viper.GetString("auth.root.username"), viper.GetString("auth.root.password")
 	if rootUsername != "" && rootPassword != "" {
+		if ttnIDRegexp.MatchString(rootUsername) {
+			logger.Warnf(`The root username "%s" may clash with TTN usernames, consider prefixing it with $`, rootUsername)
+		}
 		if rootUsername == rootPassword {
 			logger.Warn("You are using insecure root credentials, use the --auth.root.username and --auth.root.password arguments to change them")
 		}
@@ -73,6 +78,9 @@ func main() {
 
 	routerUsername, routerPassword := viper.GetString("auth.router.username"), viper.GetString("auth.router.password")
 	if routerUsername != "" && routerPassword != "" {
+		if ttnIDRegexp.MatchString(routerUsername) {
+			logger.Warnf(`The router username "%s" may clash with TTN usernames, consider prefixing it with $`, routerUsername)
+		}
 		if routerUsername == routerPassword {
 			logger.Warn("You are using insecure router credentials, use the --auth.router.username and --auth.router.password arguments to change them")
 		}
@@ -90,6 +98,9 @@ func main() {
 
 	handlerUsername, handlerPassword := viper.GetString("auth.handler.username"), viper.GetString("auth.handler.password")
 	if handlerUsername != "" && handlerPassword != "" {
+		if ttnIDRegexp.MatchString(handlerUsername) {
+			logger.Warnf(`The handler username "%s" may clash with TTN usernames, consider prefixing it with $`, handlerUsername)
+		}
 		if handlerUsername == handlerPassword {
 			logger.Warn("You are using insecure handler credentials, use the --auth.handler.username and --auth.handler.password arguments to change them")
 		}
