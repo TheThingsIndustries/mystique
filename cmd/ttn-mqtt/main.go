@@ -71,7 +71,7 @@ func main() {
 			logger.Warnf(`The root username "%s" may clash with TTN usernames, consider prefixing it with $`, rootUsername)
 		}
 		if rootUsername == rootPassword {
-			logger.Warn("You are using insecure root credentials, use the --auth.root.username and --auth.root.password arguments to change them")
+			logger.Warn("The root password equals the username, which is not very secure, use the --auth.root.password flag to change it")
 		}
 		auth.AddSuperUser(rootUsername, []byte(rootPassword), ttnauth.Access{Root: true})
 	}
@@ -82,7 +82,7 @@ func main() {
 			logger.Warnf(`The router username "%s" may clash with TTN usernames, consider prefixing it with $`, routerUsername)
 		}
 		if routerUsername == routerPassword {
-			logger.Warn("You are using insecure router credentials, use the --auth.router.username and --auth.router.password arguments to change them")
+			logger.Warn("The router password equals the username, which is not very secure, use the --auth.router.password flag to change it")
 		}
 		auth.AddSuperUser(routerUsername, []byte(routerPassword), ttnauth.Access{
 			Read: []string{"connect", "disconnect"},
@@ -102,7 +102,7 @@ func main() {
 			logger.Warnf(`The handler username "%s" may clash with TTN usernames, consider prefixing it with $`, handlerUsername)
 		}
 		if handlerUsername == handlerPassword {
-			logger.Warn("You are using insecure handler credentials, use the --auth.handler.username and --auth.handler.password arguments to change them")
+			logger.Warn("The handler password equals the username, which is not very secure, use the --auth.handler.password flag to change it")
 		}
 		auth.AddSuperUser(handlerUsername, []byte(handlerPassword), ttnauth.Access{
 			Read: []string{"connect", "disconnect"},
