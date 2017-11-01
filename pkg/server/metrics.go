@@ -44,6 +44,13 @@ var publishLatency = prometheus.NewHistogram(
 	},
 )
 
+var conns = prometheus.NewGauge(prometheus.GaugeOpts{
+	Namespace: "mystique",
+	Subsystem: "server",
+	Name:      "connections",
+	Help:      "Number of server connections.",
+})
+
 func init() {
 	prometheus.MustRegister(receivedCounter)
 	prometheus.MustRegister(sentCounter)

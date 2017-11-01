@@ -67,8 +67,10 @@ type server struct {
 func (s *server) Handle(conn net.Conn) {
 	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
 	logger.Debug("Open connection")
+	conns.Inc()
 	defer func() {
 		logger.Debug("Close connection")
+		conns.Dec()
 		conn.Close()
 	}()
 
