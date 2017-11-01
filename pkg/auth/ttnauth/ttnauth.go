@@ -129,6 +129,8 @@ func (a *TTNAuth) applicationRights(applicationID, key string) ([]string, error)
 
 // Connect or return error code
 func (a *TTNAuth) Connect(info *auth.Info) error {
+	logger := a.logger.WithFields(log.F{"username": info.Username, "remote_addr": info.RemoteAddr})
+
 	var access Access
 	info.Metadata = &access
 	info.Interface = a
@@ -143,7 +145,7 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 
 	cachedAccess := a.cache.Get(info.Username, info.Password)
 	if cachedAccess != nil {
-		a.logger.WithField("username", info.Username).Debug("Using auth result from cache")
+		logger.Debug("Using auth result from cache")
 		access = *cachedAccess
 	} else {
 		if !idPattern.MatchString(info.Username) {
@@ -151,7 +153,7 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 		}
 		access.ReadPrefix = info.Username
 
-		a.logger.WithField("username", info.Username).Debug("Authenticating using account server")
+		logger.Debug("Authenticating using account server")
 
 		appRights, err := a.applicationRights(info.Username, string(info.Password))
 		if err != nil {
@@ -167,6 +169,7 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 				access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
 			}
 		}
+
 		gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
 		if err != nil {
 			return packet.ConnectNotAuthorized
