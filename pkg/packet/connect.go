@@ -124,6 +124,15 @@ func (p ConnectPacket) Response() *ConnackPacket {
 
 // Validate the packet contents
 func (p ConnectPacket) Validate() error {
-	// TODO
+	switch p.ProtocolName {
+	case "MQIsdp", "MQTT":
+	default:
+		return ConnectUnacceptableProtocolVersion
+	}
+	switch p.ProtocolLevel {
+	case 3, 4:
+	default:
+		return ConnectUnacceptableProtocolVersion
+	}
 	return nil
 }
