@@ -18,3 +18,13 @@ fmt:
 
 dev-cert:
 	go run $$(go env GOROOT)/src/crypto/tls/generate_cert.go -ca -host localhost
+
+release/%: cmd/%/main.go
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags "-w" -o $@ $<
+
+docker/%: GOOS=linux
+docker/%: GOARCH=amd64
+docker/%: release/%
+	docker build --build-arg bin_name=$(patsubst release/%,%,$<) -t thethingsindustries/$(patsubst release/%,%,$<) .
+
+docker: docker/mystique-server docker/ttn-mqtt
