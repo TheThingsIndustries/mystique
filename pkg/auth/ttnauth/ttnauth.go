@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
+	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
@@ -25,6 +26,7 @@ const IDRegexp = "[0-9a-z](?:[_-]?[0-9a-z]){1,35}"
 // New returns a new auth interface that uses the TTN account server
 func New(servers map[string]string) *TTNAuth {
 	return &TTNAuth{
+		logger:     log.Noop,
 		client:     http.DefaultClient,
 		servers:    servers,
 		superUsers: make(map[string]superUser),
@@ -33,9 +35,16 @@ func New(servers map[string]string) *TTNAuth {
 
 // TTNAuth implements authentication for TTN
 type TTNAuth struct {
+	logger     log.Interface
 	client     *http.Client
 	servers    map[string]string
 	superUsers map[string]superUser
+}
+
+// SetLogger sets the logger interface.
+// By default, the Noop logger is used
+func (a *TTNAuth) SetLogger(logger log.Interface) {
+	a.logger = logger
 }
 
 // AddSuperUser adds a super-user to the auth plugin

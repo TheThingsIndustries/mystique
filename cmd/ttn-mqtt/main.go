@@ -63,6 +63,8 @@ func main() {
 
 	auth := ttnauth.New(accountServers)
 
+	auth.SetLogger(logger)
+
 	ttnIDRegexp := regexp.MustCompile("^" + ttnauth.IDRegexp + "$")
 
 	rootUsername, rootPassword := viper.GetString("auth.root.username"), viper.GetString("auth.root.password")
