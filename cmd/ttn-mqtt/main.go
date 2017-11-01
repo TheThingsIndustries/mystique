@@ -105,14 +105,13 @@ func main() {
 			logger.Warn("The handler password equals the username, which is not very secure, use the --auth.handler.password flag to change it")
 		}
 		auth.AddSuperUser(handlerUsername, []byte(handlerPassword), ttnauth.Access{
-			Read: []string{"connect", "disconnect"},
 			WritePattern: []*regexp.Regexp{
-				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices" + ttnauth.IDRegexp + "/up$"),
-				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices" + ttnauth.IDRegexp + "/events$"),
-				regexp.MustCompile("^" + ttnauth.IDRegexp + "/events$"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices/" + ttnauth.IDRegexp + "/up"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices/" + ttnauth.IDRegexp + "/events"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/events"),
 			},
 			ReadPattern: []*regexp.Regexp{
-				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices" + ttnauth.IDRegexp + "/down$"),
+				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices/" + ttnauth.IDRegexp + "/down$"),
 			},
 		})
 	}
