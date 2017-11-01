@@ -26,12 +26,24 @@ type conn struct {
 	net.Conn
 }
 
+func (c *conn) Write(b []byte) (n int, err error) {
+	n, err = c.Conn.Write(b)
+	sentBytes.Add(float64(n))
+	return
+}
+
 func (c *conn) Send(pkt packet.ControlPacket) error {
-	return packet.Write(c.Conn, pkt)
+	return packet.Write(c, pkt)
+}
+
+func (c *conn) Read(b []byte) (n int, err error) {
+	n, err = c.Conn.Read(b)
+	receivedBytes.Add(float64(n))
+	return
 }
 
 func (c *conn) Receive() (packet.ControlPacket, error) {
-	pkt, err := packet.Read(c.Conn)
+	pkt, err := packet.Read(c)
 	if err != nil {
 		return nil, err
 	}
