@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
@@ -23,11 +24,15 @@ import (
 // IDRegexp is the regular expression that matches TTN IDs
 const IDRegexp = "[0-9a-z](?:[_-]?[0-9a-z]){1,35}"
 
+// DefaultCacheExpire sets the expiration time of the cache
+var DefaultCacheExpire = time.Minute
+
 // New returns a new auth interface that uses the TTN account server
 func New(servers map[string]string) *TTNAuth {
 	return &TTNAuth{
 		logger:     log.Noop,
 		client:     http.DefaultClient,
+		cache:      newCache(DefaultCacheExpire),
 		servers:    servers,
 		superUsers: make(map[string]superUser),
 	}
@@ -37,6 +42,7 @@ func New(servers map[string]string) *TTNAuth {
 type TTNAuth struct {
 	logger     log.Interface
 	client     *http.Client
+	cache      *cache
 	servers    map[string]string
 	superUsers map[string]superUser
 }
@@ -45,6 +51,12 @@ type TTNAuth struct {
 // By default, the Noop logger is used
 func (a *TTNAuth) SetLogger(logger log.Interface) {
 	a.logger = logger
+}
+
+// SetCacheExpire sets the cache expiration time.
+// By default, the DefaultCacheExpire is used
+func (a *TTNAuth) SetCacheExpire(expire time.Duration) {
+	a.cache.expire = expire
 }
 
 // AddSuperUser adds a super-user to the auth plugin
@@ -129,35 +141,45 @@ func (a *TTNAuth) Connect(info *auth.Info) error {
 		return nil
 	}
 
-	if !idPattern.MatchString(info.Username) {
-		return packet.ConnectNotAuthorized
-	}
-	access.ReadPrefix = info.Username
-
-	appRights, err := a.applicationRights(info.Username, string(info.Password))
-	if err != nil {
-		return packet.ConnectServerUnavailable
-	}
-	for _, right := range appRights {
-		switch right {
-		case "messages:up:r":
-			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/up"))
-			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/events"))
-			access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events"))
-		case "messages:down:w":
-			access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
+	cachedAccess := a.cache.Get(info.Username, info.Password)
+	if cachedAccess != nil {
+		a.logger.WithField("username", info.Username).Debug("Using auth result from cache")
+		access = *cachedAccess
+	} else {
+		if !idPattern.MatchString(info.Username) {
+			return packet.ConnectNotAuthorized
 		}
-	}
-	gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
-	if err != nil {
-		return packet.ConnectServerUnavailable
-	}
-	if len(gtwRights) > 0 {
-		access.Write = append(access.Write, info.Username+"/up")
-		access.Read = append(access.Read, info.Username+"/down")
-		access.Write = append(access.Write, info.Username+"/status")
-		access.Write = append(access.Write, "connect")
-		access.Write = append(access.Write, "disconnect")
+		access.ReadPrefix = info.Username
+
+		a.logger.WithField("username", info.Username).Debug("Authenticating using account server")
+
+		appRights, err := a.applicationRights(info.Username, string(info.Password))
+		if err != nil {
+			return packet.ConnectNotAuthorized
+		}
+		for _, right := range appRights {
+			switch right {
+			case "messages:up:r":
+				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/up"))
+				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/events"))
+				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events"))
+			case "messages:down:w":
+				access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
+			}
+		}
+		gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
+		if err != nil {
+			return packet.ConnectNotAuthorized
+		}
+		if len(gtwRights) > 0 {
+			access.Write = append(access.Write, info.Username+"/up")
+			access.Read = append(access.Read, info.Username+"/down")
+			access.Write = append(access.Write, info.Username+"/status")
+			access.Write = append(access.Write, "connect")
+			access.Write = append(access.Write, "disconnect")
+		}
+
+		a.cache.Set(info.Username, info.Password, access)
 	}
 
 	if access.IsEmpty() {
