@@ -103,7 +103,7 @@ func TestHandle(t *testing.T) {
 		s := newServer()
 		conn := &mockConn{}
 		conn.toSend = append(conn.toSend,
-			&packet.ConnectPacket{CleanStart: true, KeepAlive: 1},
+			&packet.ConnectPacket{ProtocolName: "MQTT", ProtocolLevel: 4, CleanStart: true, KeepAlive: 1},
 			&packet.PingreqPacket{},
 			&packet.DisconnectPacket{},
 		)
@@ -122,7 +122,7 @@ func TestHandle(t *testing.T) {
 		conn0 := &mockConn{}
 		conn0.wg.Add(1)
 		conn0.toSend = append(conn0.toSend,
-			&packet.ConnectPacket{CleanStart: true},
+			&packet.ConnectPacket{ProtocolName: "MQTT", ProtocolLevel: 4, CleanStart: true},
 			&packet.SubscribePacket{PacketIdentifier: 1, Topics: []string{"#"}, QoSs: []byte{0}},
 		)
 		go s.Handle(conn0)
@@ -130,7 +130,7 @@ func TestHandle(t *testing.T) {
 		conn1 := &mockConn{}
 		conn1.wg.Add(1)
 		conn1.toSend = append(conn1.toSend,
-			&packet.ConnectPacket{CleanStart: true},
+			&packet.ConnectPacket{ProtocolName: "MQTT", ProtocolLevel: 4, CleanStart: true},
 			&packet.SubscribePacket{PacketIdentifier: 1, Topics: []string{"#"}, QoSs: []byte{1}},
 			// Not sending PUBACK
 		)
@@ -139,7 +139,7 @@ func TestHandle(t *testing.T) {
 		conn2 := &mockConn{}
 		conn2.wg.Add(1)
 		conn2.toSend = append(conn2.toSend,
-			&packet.ConnectPacket{CleanStart: true},
+			&packet.ConnectPacket{ProtocolName: "MQTT", ProtocolLevel: 4, CleanStart: true},
 			&packet.SubscribePacket{PacketIdentifier: 1, Topics: []string{"#"}, QoSs: []byte{2}},
 			// Not sending PUBACK / PUBREC
 		)
@@ -149,7 +149,7 @@ func TestHandle(t *testing.T) {
 
 		conn := &mockConn{}
 		conn.toSend = append(conn.toSend,
-			&packet.ConnectPacket{CleanStart: true},
+			&packet.ConnectPacket{ProtocolName: "MQTT", ProtocolLevel: 4, CleanStart: true},
 			&packet.SubscribePacket{PacketIdentifier: 41, Topics: []string{"foo"}, QoSs: []byte{1}},
 			&packet.UnsubscribePacket{PacketIdentifier: 42, Topics: []string{"foo"}},
 			&packet.PublishPacket{TopicName: "bar", QoS: 0},
