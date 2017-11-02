@@ -152,8 +152,12 @@ func (s *serverSession) HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packe
 	return response, nil
 }
 
-func (s *serverSession) Subscriptions() []string {
-	return s.subscriptions.Topics()
+func (s *serverSession) Subscriptions() map[string]byte {
+	return s.subscriptions.Subscriptions()
+}
+
+func (s *serverSession) SubscriptionTopics() []string {
+	return s.subscriptions.SubscriptionTopics()
 }
 
 func (s *serverSession) Publish(pkt *packet.PublishPacket) {

@@ -107,12 +107,23 @@ func (s *List) Matches(t string) (matches []string) {
 	return
 }
 
-// Topics returns all topics in the subscription list
-func (s *List) Topics() (topics []string) {
+// SubscriptionTopics returns all topics in the subscription list
+func (s *List) SubscriptionTopics() (topics []string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, sub := range s.subscriptions {
 		topics = append(topics, sub.filter)
 	}
 	return
+}
+
+// Subscriptions returns the subscriptions in the list
+func (s *List) Subscriptions() map[string]byte {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	subscriptions := make(map[string]byte, len(s.subscriptions))
+	for _, sub := range s.subscriptions {
+		subscriptions[sub.filter] = sub.qos
+	}
+	return subscriptions
 }

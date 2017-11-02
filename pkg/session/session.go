@@ -100,7 +100,9 @@ type ServerSession interface {
 	// removes subscriptions, returns *UnsubackPacket
 	HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packet.UnsubackPacket, error)
 
-	Subscriptions() []string
+	Subscriptions() map[string]byte
+
+	SubscriptionTopics() []string
 }
 
 // ClientSession extends Session with client-specific logic

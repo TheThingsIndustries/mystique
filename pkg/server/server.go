@@ -351,7 +351,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 	}
 
 	// Send retained messages
-	for _, pkt := range s.retainedMessages.Get(session.Subscriptions()...) {
+	for _, pkt := range s.retainedMessages.Get(session.SubscriptionTopics()...) {
 		session.Publish(pkt)
 	}
 
