@@ -30,3 +30,9 @@ func (s *clientSession) Unsubscribe(...string) error {
 func (s *clientSession) HandleUnsuback(pkt *packet.UnsubackPacket) error {
 	return errors.New("not implemented")
 }
+
+func (s *clientSession) Close() {}
+
+func (s *clientSession) Subscriptions() map[string]byte { return nil }
+
+func (s *clientSession) SubscriptionTopics() []string { return nil }

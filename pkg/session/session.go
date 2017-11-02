@@ -71,6 +71,10 @@ type Session interface {
 	// Pending messages that should be retransmitted on a reconnect
 	Pending() []packet.ControlPacket
 
+	Subscriptions() map[string]byte
+
+	SubscriptionTopics() []string
+
 	// Close the session
 	// closes the connection (if connected)
 	// on the server: delivers the will (if set) and then unsets it
@@ -99,10 +103,6 @@ type ServerSession interface {
 	// Handle an Unsubscribe packet
 	// removes subscriptions, returns *UnsubackPacket
 	HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packet.UnsubackPacket, error)
-
-	Subscriptions() map[string]byte
-
-	SubscriptionTopics() []string
 }
 
 // ClientSession extends Session with client-specific logic
