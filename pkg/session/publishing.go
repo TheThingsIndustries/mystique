@@ -15,6 +15,9 @@ func (s *session) Publish(pkt *packet.PublishPacket) {
 		s.publishIdentifier++
 		pkt.PacketIdentifier = uint16(s.publishIdentifier)
 		s.pendingOut.Add(pkt.PacketIdentifier, pkt)
+		if s.pendingOut.Len() > PublishBufferSize*2 {
+			s.pendingOut.Clear()
+		}
 	}
 	logger := s.logger.WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS})
 	select {

@@ -60,6 +60,14 @@ func (p *List) Clear() {
 	p.mu.Unlock()
 }
 
+// Len returns the length of the list.
+func (p *List) Len() (l int) {
+	p.mu.Lock()
+	l = len(p.messages)
+	p.mu.Unlock()
+	return
+}
+
 // Get all pending packets
 func (p *List) Get() []packet.ControlPacket {
 	p.mu.Lock()
