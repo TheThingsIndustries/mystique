@@ -12,7 +12,7 @@ import (
 
 // Store interface keeps sessions and handles publishing
 type Store interface {
-	All() []Session
+	All() []ServerSession
 
 	Cleanup()
 
@@ -51,10 +51,10 @@ type simpleStore struct {
 	sessions map[string]*serverSession
 }
 
-func (s *simpleStore) All() []Session {
+func (s *simpleStore) All() []ServerSession {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	sessions := make([]Session, 0, len(s.sessions))
+	sessions := make([]ServerSession, 0, len(s.sessions))
 	for _, session := range s.sessions {
 		sessions = append(sessions, session)
 	}

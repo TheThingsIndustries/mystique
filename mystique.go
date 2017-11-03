@@ -16,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/TheThingsIndustries/mystique/pkg/apex"
+	"github.com/TheThingsIndustries/mystique/pkg/inspect"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/server"
@@ -73,6 +74,7 @@ func Configure(binaryName string) {
 func RunServer(s server.Server) {
 	if listenStatus := viper.GetString("listen.status"); listenStatus != "" {
 		http.Handle("/metrics", promhttp.Handler())
+		http.Handle("/inspect/sessions", inspect.Sessions(s))
 		go http.ListenAndServe(listenStatus, nil)
 	}
 

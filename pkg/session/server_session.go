@@ -63,6 +63,15 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 	return response, nil
 }
 
+func (s *serverSession) RemoteAddr() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.authinfo == nil {
+		return ""
+	}
+	return s.authinfo.RemoteAddr
+}
+
 func (s *serverSession) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

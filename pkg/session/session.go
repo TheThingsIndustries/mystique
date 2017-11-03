@@ -86,6 +86,8 @@ type Session interface {
 type ServerSession interface {
 	Session
 
+	RemoteAddr() string
+
 	// Handle a Connect packet
 	// sets the connection and returns either a *ConnackPacket or a ConnectReturnCode as error
 	// If the returned err is nil, the ReturnCode in the *ConnackPacket will be set to 0
