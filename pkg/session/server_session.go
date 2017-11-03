@@ -4,6 +4,7 @@ package session
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
@@ -16,6 +17,9 @@ type serverSession struct {
 	session
 
 	expires time.Time
+
+	publishCount  uint64
+	deliveryCount uint64
 
 	filteredDeliveryMu sync.Mutex
 	filteredDelivery   chan *packet.PublishPacket
@@ -72,6 +76,13 @@ func (s *serverSession) RemoteAddr() string {
 	return s.authinfo.RemoteAddr
 }
 
+func (s *serverSession) Stats() Stats {
+	return Stats{
+		Published: atomic.LoadUint64(&s.publishCount),
+		Delivered: atomic.LoadUint64(&s.deliveryCount),
+	}
+}
+
 func (s *serverSession) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -120,6 +131,9 @@ func (s *serverSession) clear() {
 	s.will = nil
 	s.publishIdentifier = 0
 	s.logger = log.FromContext(s.ctx)
+
+	s.publishCount = 0
+	s.deliveryCount = 0
 
 	s.expires = time.Now()
 }
@@ -198,6 +212,7 @@ func (s *serverSession) Publish(pkt *packet.PublishPacket) {
 	if pub.QoS > pkt.QoS {
 		pub.QoS = pkt.QoS
 	}
+	atomic.AddUint64(&s.publishCount, 1)
 	s.session.Publish(pub)
 }
 
@@ -212,6 +227,7 @@ func (s *serverSession) DeliveryChan() <-chan *packet.PublishPacket {
 				canWrite := s.authinfo.CanWrite(pkt.TopicName)
 				s.mu.RUnlock()
 				if canWrite {
+					atomic.AddUint64(&s.deliveryCount, 1)
 					s.filteredDelivery <- pkt
 				} else {
 					s.logger.WithField("topic", pkt.TopicName).Debug("Drop unauthorized publish")

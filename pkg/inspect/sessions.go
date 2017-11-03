@@ -39,6 +39,10 @@ var tmpl = template.Must(template.New("inspect").Parse(`
 		color: #666;
 		font-size: 60%;
 	}
+	h2 small span {
+		margin-right: 5px;
+		white-space: nowrap;
+	}
 	section.session {
 		border: 1px solid #CCC;
 		border-radius: 3px;
@@ -51,7 +55,14 @@ var tmpl = template.Must(template.New("inspect").Parse(`
 <body>
 {{ range .Sessions }}
 <section class="session">
-<h2>Session <code>{{ .ID }}</code> <small>user <code>{{ .Username }}</code> address <code>{{ .RemoteAddr }}</code></small></h2>
+<h2>Session <code>{{ .ID }}</code><br><small>
+<span>user <code>{{ .Username }}</code></span>
+<span>address <code>{{ .RemoteAddr }}</code></span>
+{{ with .Stats }}
+<span>produced <code>{{ .Delivered }}</code></span>
+<span>consumed <code>{{ .Published }}</code></span>
+{{ end }}
+</small></h2>
 {{ with .Subscriptions }}
 <ul>
 {{ range $topic, $qos := . }}
