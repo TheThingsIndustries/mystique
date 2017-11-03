@@ -38,6 +38,7 @@ func WithRetainedMessagesStore(store retained.Store) Option {
 // Server interface
 type Server interface {
 	Handle(conn net.Conn)
+	Sessions() session.Store
 }
 
 // New returns a new MQTT server
@@ -257,6 +258,10 @@ func (s *server) Handle(conn net.Conn) {
 			return
 		}
 	}
+}
+
+func (s *server) Sessions() session.Store {
+	return s.sessions
 }
 
 var boot = time.Now()

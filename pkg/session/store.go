@@ -12,6 +12,8 @@ import (
 
 // Store interface keeps sessions and handles publishing
 type Store interface {
+	All() []Session
+
 	Cleanup()
 
 	// Get or create a session
@@ -47,6 +49,16 @@ type simpleStore struct {
 	mu       sync.RWMutex
 	ctx      context.Context
 	sessions map[string]*serverSession
+}
+
+func (s *simpleStore) All() []Session {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	sessions := make([]Session, 0, len(s.sessions))
+	for _, session := range s.sessions {
+		sessions = append(sessions, session)
+	}
+	return sessions
 }
 
 func (s *simpleStore) Cleanup() {
