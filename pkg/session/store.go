@@ -5,12 +5,15 @@ package session
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 )
 
 // Store interface keeps sessions and handles publishing
 type Store interface {
+	Cleanup()
+
 	// Get or create a session
 	GetOrCreate(id string) ServerSession
 
@@ -21,18 +24,40 @@ type Store interface {
 	Publish(pkt *packet.PublishPacket)
 }
 
-// SimpleStore returns a simple (inefficient) Store implementation
+// SimpleStore returns a simple (inefficient) Store implementation and starts a goroutine that keeps the store clean
 func SimpleStore(ctx context.Context) Store {
-	return &simpleStore{
+	s := &simpleStore{
 		ctx:      ctx,
 		sessions: make(map[string]*serverSession),
 	}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Minute):
+				s.Cleanup()
+			}
+		}
+	}()
+	return s
 }
 
 type simpleStore struct {
 	mu       sync.RWMutex
 	ctx      context.Context
 	sessions map[string]*serverSession
+}
+
+func (s *simpleStore) Cleanup() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	for id, session := range s.sessions {
+		if !session.expires.IsZero() && session.expires.Before(now) {
+			delete(s.sessions, id)
+		}
+	}
 }
 
 func (s *simpleStore) GetOrCreate(id string) ServerSession {

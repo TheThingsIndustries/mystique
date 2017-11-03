@@ -4,6 +4,7 @@ package session
 
 import (
 	"sync"
+	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
@@ -13,6 +14,8 @@ import (
 
 type serverSession struct {
 	session
+
+	expires time.Time
 
 	filteredDeliveryMu sync.Mutex
 	filteredDelivery   chan *packet.PublishPacket
@@ -41,6 +44,7 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 
 	s.connect = pkt
 	s.authinfo = authInfo
+	s.expires = time.Time{}
 
 	s.logger = s.logger.WithFields(log.F{"client_id": authInfo.ClientID, "remote_addr": conn.RemoteAddr().String()})
 	if authInfo.Username != "" {
@@ -84,6 +88,8 @@ func (s *serverSession) close() {
 
 	s.wg.Wait() // Wait for the goroutine to finish
 
+	s.expires = time.Now().Add(time.Hour)
+
 	if s.connect.CleanStart {
 		s.clear()
 	}
@@ -105,6 +111,8 @@ func (s *serverSession) clear() {
 	s.will = nil
 	s.publishIdentifier = 0
 	s.logger = log.FromContext(s.ctx)
+
+	s.expires = time.Now()
 }
 
 func (s *serverSession) deliverWill() {
