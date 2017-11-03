@@ -66,9 +66,11 @@ func (s *simpleStore) Cleanup() {
 	defer s.mu.Unlock()
 	now := time.Now()
 	for id, session := range s.sessions {
+		session.mu.RLock()
 		if !session.expires.IsZero() && session.expires.Before(now) {
 			delete(s.sessions, id)
 		}
+		session.mu.RUnlock()
 	}
 }
 
