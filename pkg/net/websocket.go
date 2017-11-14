@@ -54,8 +54,12 @@ func Websocket(handle func(Conn)) http.Handler {
 			if err != nil {
 				addr = ws.RemoteAddr()
 			}
+			transport := "ws"
+			if ws.Config().TlsConfig != nil {
+				transport = "wss"
+			}
 			conn := &wsConn{
-				Conn:       NewConn(ws),
+				Conn:       NewConn(ws, transport),
 				remoteAddr: addr,
 			}
 			handle(conn)

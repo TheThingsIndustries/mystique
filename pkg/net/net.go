@@ -16,14 +16,20 @@ type Conn interface {
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+	Transport() string
 	Send(pkt packet.ControlPacket) error
 	Receive() (packet.ControlPacket, error)
 	SetReadTimeout(d time.Duration)
 }
 
 type conn struct {
-	timeout time.Duration
+	transport string
+	timeout   time.Duration
 	net.Conn
+}
+
+func (c *conn) Transport() string {
+	return c.transport
 }
 
 func (c *conn) Write(b []byte) (n int, err error) {
@@ -70,8 +76,8 @@ func Dial(network, address string) (Conn, error) {
 }
 
 // NewConn creates a Conn that wraps an inner Conn.
-func NewConn(inner net.Conn) Conn {
-	return &conn{Conn: inner}
+func NewConn(inner net.Conn, transport string) Conn {
+	return &conn{Conn: inner, transport: transport}
 }
 
 // DialContext acts like Dial but takes a context.
@@ -81,7 +87,7 @@ func DialContext(ctx context.Context, network, address string) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewConn(inner), nil
+	return NewConn(inner, "tcp"), nil
 }
 
 // Listener wraps net.Listener with MQTT-specific functions.
@@ -93,6 +99,7 @@ type Listener interface {
 
 type listener struct {
 	net.Listener
+	transport string
 }
 
 func (l *listener) Accept() (Conn, error) {
@@ -100,7 +107,7 @@ func (l *listener) Accept() (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewConn(inner), nil
+	return NewConn(inner, l.transport), nil
 }
 
 // Listen on the local network address.
@@ -109,10 +116,10 @@ func Listen(network, address string) (Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListener(inner), nil
+	return NewListener(inner, network), nil
 }
 
 // NewListener creates a Listener that accepts connections from an inner Listener.
-func NewListener(inner net.Listener) Listener {
-	return &listener{inner}
+func NewListener(inner net.Listener, transport string) Listener {
+	return &listener{Listener: inner, transport: transport}
 }

@@ -122,7 +122,7 @@ func RunServer(s server.Server) {
 			}
 			defer tlsLis.Close()
 
-			lis := mqttnet.NewListener(tlsLis)
+			lis := mqttnet.NewListener(tlsLis, "tls")
 
 			go func() {
 				for {

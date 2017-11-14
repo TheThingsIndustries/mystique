@@ -304,6 +304,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 
 	authInfo := &auth.Info{
 		RemoteAddr: conn.RemoteAddr().String(),
+		Transport:  conn.Transport(),
 		ClientID:   connect.ClientID,
 		Username:   connect.Username,
 		Password:   connect.Password,

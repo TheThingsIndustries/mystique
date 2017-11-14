@@ -35,6 +35,9 @@ func (m *mockConn) LocalAddr() net.Addr {
 func (m *mockConn) RemoteAddr() net.Addr {
 	return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 1337}
 }
+func (m *mockConn) Transport() string {
+	return "mock"
+}
 func (m *mockConn) Send(pkt packet.ControlPacket) error {
 	if m.closed {
 		return errors.New("conn closed")
