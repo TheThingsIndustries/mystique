@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -46,6 +47,9 @@ func Configure(binaryName string) {
 	pflag.BoolP("debug", "d", false, "Print debug logs")
 	pflag.String("listen.tcp", ":1883", "TCP address for MQTT server to listen on")
 	pflag.String("listen.tls", ":8883", "TLS address for MQTT server to listen on")
+	pflag.String("listen.http", ":8080", "TCP address for HTTP+websocket server to listen on")
+	pflag.String("listen.https", ":8443", "TLS address for HTTP+websocket server to listen on")
+	pflag.String("websocket.pattern", "/mqtt", "URL pattern for websocket server to be registered on")
 	pflag.String("listen.status", ":6060", "Address for status server to listen on")
 	pflag.String("tls.cert", "", "Location of the TLS certificate")
 	pflag.String("tls.key", "", "Location of the TLS key")
@@ -72,7 +76,10 @@ func Configure(binaryName string) {
 
 // RunServer the server
 func RunServer(s server.Server) {
+	wss := mqttnet.Websocket(s.Handle)
+
 	if listenStatus := viper.GetString("listen.status"); listenStatus != "" {
+		http.Handle("/mqtt", wss)
 		http.Handle("/metrics", promhttp.Handler())
 		http.Handle("/inspect/sessions", inspect.Sessions(s))
 		go http.ListenAndServe(listenStatus, nil)
@@ -125,6 +132,51 @@ func RunServer(s server.Server) {
 						return
 					}
 					go s.Handle(conn)
+				}
+			}()
+		}
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle(viper.GetString("websocket.pattern"), wss)
+
+	if listen := viper.GetString("listen.http"); listen != "" {
+		logger.WithField("address", listen).Info("Starting HTTP server")
+		lis, err := net.Listen("tcp", listen)
+		if err != nil {
+			logger.WithError(err).Fatal("Could not start server")
+		}
+		defer lis.Close()
+
+		go func() {
+			err := http.Serve(lis, mux)
+			if err != nil {
+				logger.WithError(err).Error("Could not serve HTTP")
+			}
+		}()
+	}
+
+	if listen := viper.GetString("listen.https"); listen != "" {
+		certFile, keyFile := viper.GetString("tls.cert"), viper.GetString("tls.key")
+		if certFile != "" && keyFile != "" {
+			cert, err := tls.LoadX509KeyPair(filepath.Clean(certFile), filepath.Clean(keyFile))
+			if err != nil {
+				logger.WithError(err).Fatal("Could not read TLS keypair")
+			}
+
+			logger.WithField("address", listen).Info("Starting HTTPS server")
+			tlsLis, err := tls.Listen("tcp", listen, &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			})
+			if err != nil {
+				logger.WithError(err).Fatal("Could not start server")
+			}
+			defer tlsLis.Close()
+
+			go func() {
+				err := http.Serve(tlsLis, mux)
+				if err != nil {
+					logger.WithError(err).Error("Could not serve HTTP")
 				}
 			}()
 		}
