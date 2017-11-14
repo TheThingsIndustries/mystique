@@ -5,12 +5,15 @@
 //     Usage: mystique-server [options]
 //
 //     Options:
-//     -d, --debug                  Print debug logs
-//         --listen.status string   Address for status server to listen on (default ":6060")
-//         --listen.tcp string      TCP address for MQTT server to listen on (default ":1883")
-//         --listen.tls string      TLS address for MQTT server to listen on (default ":8883")
-//         --tls.cert string        Location of the TLS certificate
-//         --tls.key string         Location of the TLS key
+//     -d, --debug                      Print debug logs
+//         --listen.http string         TCP address for HTTP+websocket server to listen on (default ":8080")
+//         --listen.https string        TLS address for HTTP+websocket server to listen on (default ":8443")
+//         --listen.status string       Address for status server to listen on (default ":6060")
+//         --listen.tcp string          TCP address for MQTT server to listen on (default ":1883")
+//         --listen.tls string          TLS address for MQTT server to listen on (default ":8883")
+//         --tls.cert string            Location of the TLS certificate
+//         --tls.key string             Location of the TLS key
+//         --websocket.pattern string   URL pattern for websocket server to be registered on (default "/mqtt")
 package main
 
 import (

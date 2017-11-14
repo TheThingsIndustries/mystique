@@ -6,18 +6,21 @@
 //
 // Options:
 //         --auth.handler.password string          Handler password (leave empty to disable user)
-//         --auth.handler.username string          Handler username (default "handler")
+//         --auth.handler.username string          Handler username (default "$handler")
 //         --auth.root.password string             Root password (leave empty to disable user)
-//         --auth.root.username string             Root username (default "root")
+//         --auth.root.username string             Root username (default "$root")
 //         --auth.router.password string           Router password (leave empty to disable user)
-//         --auth.router.username string           Router username (default "router")
+//         --auth.router.username string           Router username (default "$router")
 //         --auth.ttn.account-server stringSlice   TTN Account Servers (default [ttn-account-v2=https://account.thethingsnetwork.org])
 //     -d, --debug                                 Print debug logs
+//         --listen.http string                    TCP address for HTTP+websocket server to listen on (default ":8080")
+//         --listen.https string                   TLS address for HTTP+websocket server to listen on (default ":8443")
 //         --listen.status string                  Address for status server to listen on (default ":6060")
 //         --listen.tcp string                     TCP address for MQTT server to listen on (default ":1883")
 //         --listen.tls string                     TLS address for MQTT server to listen on (default ":8883")
 //         --tls.cert string                       Location of the TLS certificate
 //         --tls.key string                        Location of the TLS key
+//         --websocket.pattern string              URL pattern for websocket server to be registered on (default "/mqtt")
 package main
 
 import (
