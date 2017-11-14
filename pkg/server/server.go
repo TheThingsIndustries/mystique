@@ -39,6 +39,7 @@ func WithRetainedMessagesStore(store retained.Store) Option {
 type Server interface {
 	Handle(conn net.Conn)
 	Sessions() session.Store
+	Publish(pkt *packet.PublishPacket)
 }
 
 // New returns a new MQTT server
@@ -62,6 +63,10 @@ type server struct {
 	auth             auth.Interface // may be nil
 	sessions         session.Store
 	retainedMessages retained.Store
+}
+
+func (s *server) Publish(pkt *packet.PublishPacket) {
+	s.sessions.Publish(pkt)
 }
 
 // Handle a connection
@@ -107,7 +112,7 @@ func (s *server) Handle(conn net.Conn) {
 	go func() {
 		for msg := range session.DeliveryChan() {
 			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Info("Publish message")
-			s.sessions.Publish(msg)
+			s.Publish(msg)
 		}
 	}()
 
