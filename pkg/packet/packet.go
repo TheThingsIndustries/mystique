@@ -43,7 +43,6 @@ type ControlPacket interface {
 	setFlags(f flags) error
 	flags() flags
 	Validate() error
-	// TODO: Add Size()
 }
 
 // Write a control packet to the writer

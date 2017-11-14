@@ -42,6 +42,5 @@ func (p *SubackPacket) UnmarshalBinary(data []byte) (err error) {
 
 // Validate the packet contents
 func (p SubackPacket) Validate() error {
-	// TODO
 	return validatePacketIdentifier(p.PacketIdentifier)
 }
