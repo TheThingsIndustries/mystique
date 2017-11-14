@@ -5,6 +5,8 @@ package packet
 import (
 	"bytes"
 	"io"
+
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // UnsubscribePacket is the UNSUBSCRIBE packet
@@ -56,7 +58,14 @@ func (p UnsubscribePacket) Response() *UnsubackPacket {
 }
 
 // Validate the packet contents
-func (p UnsubscribePacket) Validate() error {
-	// TODO
-	return validatePacketIdentifier(p.PacketIdentifier)
+func (p UnsubscribePacket) Validate() (err error) {
+	if err = validatePacketIdentifier(p.PacketIdentifier); err != nil {
+		return err
+	}
+	for _, t := range p.Topics {
+		if err = topic.ValidateFilter(t); err != nil {
+			return err
+		}
+	}
+	return nil
 }

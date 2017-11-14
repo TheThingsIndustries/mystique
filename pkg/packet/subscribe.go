@@ -5,6 +5,8 @@ package packet
 import (
 	"bytes"
 	"io"
+
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // SubscribePacket is the SUBSCRIBE packet
@@ -76,7 +78,14 @@ func (p SubscribePacket) Response() *SubackPacket {
 var SubscribeRejected byte = 0x80
 
 // Validate the packet contents
-func (p SubscribePacket) Validate() error {
-	// TODO
-	return validatePacketIdentifier(p.PacketIdentifier)
+func (p SubscribePacket) Validate() (err error) {
+	if err = validatePacketIdentifier(p.PacketIdentifier); err != nil {
+		return err
+	}
+	for _, t := range p.Topics {
+		if err = topic.ValidateFilter(t); err != nil {
+			return err
+		}
+	}
+	return nil
 }

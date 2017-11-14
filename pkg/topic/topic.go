@@ -3,7 +3,10 @@
 // Package topic implements MQTT topic matching
 package topic
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 // MQTT constants
 const (
@@ -36,4 +39,33 @@ func MatchPath(topicPath, filterPath []string) bool {
 		}
 	}
 	return len(filterPath) == len(topicPath)
+}
+
+// ValidateTopic validates a topic name
+func ValidateTopic(topic string) error {
+	if len(topic) == 0 {
+		return errors.New("Empty topic")
+	}
+	if strings.ContainsAny(topic, Wildcard+PartWildcard+"\u0000") {
+		return errors.New("Topic contains invalid characters")
+	}
+	return nil
+}
+
+// ValidateFilter validates a topic filter
+func ValidateFilter(filter string) error {
+	if len(filter) == 0 {
+		return errors.New("Empty topic filter")
+	}
+	if strings.ContainsRune(filter, '\u0000') {
+		return errors.New("Topic filter can not contain NUL character")
+	}
+	parts := strings.Split(filter, Separator)
+	for i, part := range parts {
+		if (strings.ContainsAny(part, Wildcard+PartWildcard) && len(part) != 1) ||
+			(part == Wildcard && i != len(parts)-1) {
+			return errors.New("Topic filter has wildcard in wrong place")
+		}
+	}
+	return nil
 }

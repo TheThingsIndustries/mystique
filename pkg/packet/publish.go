@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"errors"
 	"time"
+
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // QoS Levels
@@ -98,6 +100,8 @@ func (p PublishPacket) Response() ControlPacket {
 
 // Validate the packet contents
 func (p PublishPacket) Validate() error {
-	// TODO
-	return nil
+	if p.QoS == 0 && p.Duplicate {
+		return errors.New("DUP can not be 1 for QoS 0 messages")
+	}
+	return topic.ValidateTopic(p.TopicName)
 }
