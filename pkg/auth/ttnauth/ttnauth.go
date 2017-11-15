@@ -222,21 +222,26 @@ func (a *TTNAuth) Subscribe(info *auth.Info, requestedTopic string, requestedQoS
 }
 
 // CanRead returns true iff the session can read from the topic
-func (a *TTNAuth) CanRead(info *auth.Info, topic string) bool {
+func (a *TTNAuth) CanRead(info *auth.Info, t string) bool {
 	if info.Metadata == nil {
 		return false
 	}
 	access := info.Metadata.(*Access)
 	if access.Root {
+		// Root has full access
 		return true
 	}
+	if strings.HasPrefix(t, topic.InternalPrefix) {
+		// Non-root has no access to internal topics
+		return false
+	}
 	for _, allowed := range access.Read {
-		if topic == allowed {
+		if t == allowed {
 			return true
 		}
 	}
 	for _, allowed := range access.ReadPattern {
-		if allowed.MatchString(topic) {
+		if allowed.MatchString(t) {
 			return true
 		}
 	}
@@ -244,8 +249,12 @@ func (a *TTNAuth) CanRead(info *auth.Info, topic string) bool {
 }
 
 // CanWrite returns true iff the session can write to the topic
-func (a *TTNAuth) CanWrite(info *auth.Info, topic string) bool {
+func (a *TTNAuth) CanWrite(info *auth.Info, t string) bool {
 	if info.Metadata == nil {
+		return false
+	}
+	if strings.HasPrefix(t, topic.InternalPrefix) {
+		// Only the server can write to internal topics
 		return false
 	}
 	access := info.Metadata.(*Access)
@@ -253,12 +262,12 @@ func (a *TTNAuth) CanWrite(info *auth.Info, topic string) bool {
 		return true
 	}
 	for _, allowed := range access.Write {
-		if topic == allowed {
+		if t == allowed {
 			return true
 		}
 	}
 	for _, allowed := range access.WritePattern {
-		if allowed.MatchString(topic) {
+		if allowed.MatchString(t) {
 			return true
 		}
 	}

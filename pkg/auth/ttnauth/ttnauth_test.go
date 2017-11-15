@@ -69,6 +69,8 @@ func TestTTNAuth(t *testing.T) {
 
 	a.So(root.CanRead("any"), should.BeTrue)
 	a.So(root.CanWrite("any"), should.BeTrue)
+	a.So(root.CanRead("$SYS/#"), should.BeTrue)
+	a.So(root.CanWrite("$SYS/#"), should.BeFalse)
 
 	incorrect := &auth.Info{
 		Username: "test",
@@ -106,6 +108,7 @@ func TestTTNAuth(t *testing.T) {
 	a.So(app.CanRead("other/events"), should.BeFalse)
 	a.So(app.CanRead("test/events/activate"), should.BeTrue)
 	a.So(app.CanRead("other/events/activate"), should.BeFalse)
+	a.So(app.CanRead("$SYS/#"), should.BeFalse)
 
 	{
 		_, _, err := app.Subscribe("root", 0)
@@ -129,6 +132,7 @@ func TestTTNAuth(t *testing.T) {
 	a.So(gtw.CanRead("other/down"), should.BeFalse)
 	a.So(gtw.CanWrite("test/up"), should.BeTrue)
 	a.So(gtw.CanWrite("other/up"), should.BeFalse)
+	a.So(gtw.CanRead("$SYS/#"), should.BeFalse)
 
 	{
 		_, _, err := gtw.Subscribe("connect", 0)
