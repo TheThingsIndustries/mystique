@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
@@ -71,12 +72,16 @@ func (s *server) Publish(pkt *packet.PublishPacket) {
 
 // Handle a connection
 func (s *server) Handle(conn net.Conn) {
-	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
+	remoteAddr := conn.RemoteAddr().String()
+	evt := EventMetadata{RemoteAddr: remoteAddr}
+	logger := s.logger.WithField("remote_addr", remoteAddr)
 	logger.Debug("Open connection")
 	conns.Inc()
+	s.PublishEvent("connection.open", evt)
 	defer func() {
 		logger.Debug("Close connection")
 		conns.Dec()
+		s.PublishEvent("connection.close", evt)
 		conn.Close()
 	}()
 
@@ -87,16 +92,20 @@ func (s *server) Handle(conn net.Conn) {
 
 	sessionID := session.ID()
 	logger = logger.WithField("client_id", sessionID)
-	if session.Username() != "" {
-		logger = logger.WithField("username", session.Username())
+	evt.ClientID = sessionID
+	if username := session.Username(); username != "" {
+		logger = logger.WithField("username", username)
+		evt.Username = username
 	}
 
 	defer func() {
 		if session.IsGarbage() {
 			logger.Info("End session")
+			s.PublishEvent("session.end", evt)
 			s.sessions.Delete(sessionID) // session.ID() is already empty at this point
 		} else {
 			logger.Info("Detach session")
+			s.PublishEvent("session.detach", evt)
 		}
 	}()
 
@@ -271,8 +280,13 @@ func (s *server) Sessions() session.Store {
 
 var boot = time.Now()
 
+// replaceClientID replaces unwanted characters
+// "/" -> "." (because we use clientID in topic names for events)
+var replaceClientID = strings.NewReplacer("/", ".")
+
 func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, err error) {
 	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
+	evt := EventMetadata{RemoteAddr: conn.RemoteAddr().String()}
 
 	// Receive the connect packet or exit
 	pkt, err := conn.Receive()
@@ -284,6 +298,11 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		logger.Warn("First packet is not CONNECT")
 		return
 	}
+
+	connect.ClientID = replaceClientID.Replace(connect.ClientID)
+
+	evt.ClientID = connect.ClientID
+	evt.Username = connect.Username
 
 	defer func() {
 		if err != nil {
@@ -318,8 +337,9 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 	if s.auth != nil {
 		// Authenticate the connection or exit with a return code
 		if err = s.auth.Connect(authInfo); err != nil {
-			logger.WithError(err).Warn("Authentication failed")
-			connectCounter.WithLabelValues("auth_refused").Inc()
+			logger.WithError(err).Warn("Login failed")
+			connectCounter.WithLabelValues("refused_login").Inc()
+			s.PublishEvent("auth.refused.login", evt)
 			return
 		}
 	}
@@ -339,7 +359,8 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 	response, err := session.HandleConnect(conn, authInfo, connect)
 	if err != nil {
 		logger.WithError(err).Warn("Session failed to attach")
-		connectCounter.WithLabelValues("session_refused").Inc()
+		connectCounter.WithLabelValues("refused_client_id").Inc()
+		s.PublishEvent("auth.refused.client_id", evt)
 		return
 	}
 
@@ -349,6 +370,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		logger.Info("Start session")
 	}
 	connectCounter.WithLabelValues("accepted").Inc()
+	s.PublishEvent("auth.accepted", evt)
 
 	// Send the connack
 	conn.Send(response)
