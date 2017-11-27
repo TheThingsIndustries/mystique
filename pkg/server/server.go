@@ -36,6 +36,11 @@ func WithRetainedMessagesStore(store retained.Store) Option {
 	return func(s *server) { s.retainedMessages = store }
 }
 
+// WithFirehose sets the firehose of the server that receives all publishes
+func WithFirehose(f chan<- *packet.PublishPacket) Option {
+	return func(s *server) { s.firehose = f }
+}
+
 // Server interface
 type Server interface {
 	Handle(conn net.Conn)
@@ -62,12 +67,16 @@ type server struct {
 	ctx              context.Context
 	logger           log.Interface
 	auth             auth.Interface // may be nil
+	firehose         chan<- *packet.PublishPacket
 	sessions         session.Store
 	retainedMessages retained.Store
 }
 
 func (s *server) Publish(pkt *packet.PublishPacket) {
 	s.sessions.Publish(pkt)
+	if s.firehose != nil {
+		s.firehose <- pkt
+	}
 }
 
 // Handle a connection
