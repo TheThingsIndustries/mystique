@@ -223,14 +223,15 @@ func (s *serverSession) Publish(pkt *packet.PublishPacket) {
 func (s *serverSession) DeliveryChan() <-chan *packet.PublishPacket {
 	s.filteredDeliveryMu.Lock()
 	if s.filteredDelivery == nil {
+		s.mu.Lock()
+		delivery := s.delivery
+		authinfo := s.authinfo
+		s.mu.Unlock()
 		s.filteredDelivery = make(chan *packet.PublishPacket)
+		s.wg.Add(1)
 		go func() {
-			s.wg.Add(1)
-			for pkt := range s.session.delivery {
-				s.mu.RLock()
-				canWrite := s.authinfo.CanWrite(pkt.TopicName)
-				s.mu.RUnlock()
-				if canWrite {
+			for pkt := range delivery {
+				if authinfo.CanWrite(pkt.TopicName) {
 					atomic.AddUint64(&s.deliveryCount, 1)
 					s.filteredDelivery <- pkt
 				} else {
