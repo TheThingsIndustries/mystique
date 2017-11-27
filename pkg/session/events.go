@@ -22,8 +22,8 @@ func (s *serverSession) PublishEvent(name string, e EventMetadata) {
 			TopicName: fmt.Sprintf("$SYS/session/%s/%s", s.ID(), name),
 		}
 		pkt.Message, _ = json.Marshal(e)
-		s.mu.RLock()
-		defer s.mu.RUnlock()
+		s.filteredDeliveryMu.Lock()
+		defer s.filteredDeliveryMu.Unlock()
 		if s.filteredDelivery != nil {
 			s.filteredDelivery <- pkt
 		}
