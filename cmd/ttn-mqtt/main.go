@@ -31,7 +31,10 @@ import (
 	"github.com/TheThingsIndustries/mystique"
 	"github.com/TheThingsIndustries/mystique/pkg/auth/ttnauth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
+	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/server"
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -121,7 +124,66 @@ func main() {
 		})
 	}
 
-	s := server.New(mystique.Context(), server.WithAuth(auth))
+	firehose := make(chan *packet.PublishPacket, 10)
+	go func() {
+		for msg := range firehose {
+			topicPath := strings.Split(msg.TopicName, topic.Separator)
+			switch {
+			case topic.MatchPath(topicPath, []string{"connect"}):
+				info := new(connectMessage)
+				err := proto.Unmarshal(msg.Message, info)
+				if err == nil {
+					logger.WithField("gateway_id", info.GatewayID).Info("Gateway connected")
+				} else {
+					logger.Warn("Received invalid connect message")
+				}
+			case topic.MatchPath(topicPath, []string{"+", "up"}):
+				logger.WithField("gateway_id", topicPath[0]).Info("Gateway uplink")
+			case topic.MatchPath(topicPath, []string{"+", "status"}):
+				logger.WithField("gateway_id", topicPath[0]).Info("Gateway status")
+			case topic.MatchPath(topicPath, []string{"+", "down"}):
+				logger.WithField("gateway_id", topicPath[0]).Info("Gateway downlink")
+			case topic.MatchPath(topicPath, []string{"disconnect"}):
+				info := new(disconnectMessage)
+				err := proto.Unmarshal(msg.Message, info)
+				if err == nil {
+					logger.WithField("gateway_id", info.GatewayID).Info("Gateway disconnected")
+				} else {
+					logger.Warn("Received invalid disconnect message")
+				}
+			case topic.MatchPath(topicPath, []string{"+", "devices", "+", "up"}):
+				logger.WithField("app_id", topicPath[0]).Info("Device uplink")
+			case topic.MatchPath(topicPath, []string{"+", "devices", "+", "down"}):
+				logger.WithField("app_id", topicPath[0]).Info("Device downlink")
+			case topic.MatchPath(topicPath, []string{"+", "devices", "+", "events"}),
+				topic.MatchPath(topicPath, []string{"+", "devices", "+", "events", "#"}):
+				logger.WithField("app_id", topicPath[0]).Info("Device event")
+			case topic.MatchPath(topicPath, []string{"+", "events"}),
+				topic.MatchPath(topicPath, []string{"+", "events", "#"}):
+				logger.WithField("app_id", topicPath[0]).Info("Application event")
+			}
+		}
+	}()
+
+	s := server.New(mystique.Context(), server.WithAuth(auth), server.WithFirehose(firehose))
 
 	mystique.RunServer(s)
 }
+
+type connectMessage struct {
+	GatewayID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Key       string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (m *connectMessage) Reset()         { m.GatewayID, m.Key = "", "" }
+func (m *connectMessage) String() string { return "Connect(" + m.GatewayID + ")" }
+func (*connectMessage) ProtoMessage()    {}
+
+type disconnectMessage struct {
+	GatewayID string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Key       string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (m *disconnectMessage) Reset()         { m.GatewayID, m.Key = "", "" }
+func (m *disconnectMessage) String() string { return "Disconnect(" + m.GatewayID + ")" }
+func (*disconnectMessage) ProtoMessage()    {}
