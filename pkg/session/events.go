@@ -15,11 +15,17 @@ type EventMetadata struct {
 	Topic string `json:"topic,omitempty"`
 }
 
-func (s *session) PublishEvent(name string, e EventMetadata) {
-	pkt := &packet.PublishPacket{
-		Received:  time.Now(),
-		TopicName: fmt.Sprintf("$SYS/session/%s/%s", s.ID(), name),
-	}
-	pkt.Message, _ = json.Marshal(e)
-	s.delivery <- pkt
+func (s *serverSession) PublishEvent(name string, e EventMetadata) {
+	go func() {
+		pkt := &packet.PublishPacket{
+			Received:  time.Now(),
+			TopicName: fmt.Sprintf("$SYS/session/%s/%s", s.ID(), name),
+		}
+		pkt.Message, _ = json.Marshal(e)
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		if s.filteredDelivery != nil {
+			s.filteredDelivery <- pkt
+		}
+	}()
 }

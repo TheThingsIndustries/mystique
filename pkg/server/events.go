@@ -18,10 +18,12 @@ type EventMetadata struct {
 }
 
 func (s *server) PublishEvent(name string, e EventMetadata) {
-	pkt := &packet.PublishPacket{
-		Received:  time.Now(),
-		TopicName: fmt.Sprintf("$SYS/server/events/%s", name),
-	}
-	pkt.Message, _ = json.Marshal(e)
-	s.sessions.Publish(pkt)
+	go func() {
+		pkt := &packet.PublishPacket{
+			Received:  time.Now(),
+			TopicName: fmt.Sprintf("$SYS/server/events/%s", name),
+		}
+		pkt.Message, _ = json.Marshal(e)
+		s.sessions.Publish(pkt)
+	}()
 }
