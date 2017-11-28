@@ -308,7 +308,11 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		return
 	}
 
-	connect.ClientID = replaceClientID.Replace(connect.ClientID)
+	if connect.ClientID == "" {
+		connect.ClientID = fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Since(boot))
+	} else {
+		connect.ClientID = replaceClientID.Replace(connect.ClientID)
+	}
 
 	evt.ClientID = connect.ClientID
 	evt.Username = connect.Username
@@ -355,10 +359,6 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 
 	if connect.KeepAlive > 0 {
 		conn.SetReadTimeout(time.Duration(connect.KeepAlive) * 1500 * time.Millisecond)
-	}
-
-	if connect.ClientID == "" {
-		connect.ClientID = fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Since(boot))
 	}
 
 	// Find a matching session or create a new one
