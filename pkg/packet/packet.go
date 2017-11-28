@@ -78,15 +78,18 @@ func Read(r io.Reader) (p ControlPacket, err error) {
 		messageType = PacketType(b[0] >> 4)
 		flags       = newFlags(b[0])
 		length      int
+		payload     []byte
 	)
 	length, err = ReadRemainingLength(r)
 	if err != nil {
 		return
 	}
-	payload := make([]byte, length)
-	_, err = r.Read(payload)
-	if err != nil {
-		return
+	if length > 0 {
+		payload = make([]byte, length)
+		_, err = r.Read(payload)
+		if err != nil {
+			return
+		}
 	}
 	switch messageType {
 	case CONNECT:
