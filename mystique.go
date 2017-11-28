@@ -140,6 +140,12 @@ func RunServer(s server.Server) {
 	mux := http.NewServeMux()
 	mux.Handle(viper.GetString("websocket.pattern"), wss)
 
+	if _, err := os.Stat("example/websocket_client.html"); err == nil {
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "example/websocket_client.html")
+		})
+	}
+
 	if listen := viper.GetString("listen.http"); listen != "" {
 		logger.WithField("address", listen).Info("Starting HTTP server")
 		lis, err := net.Listen("tcp", listen)
