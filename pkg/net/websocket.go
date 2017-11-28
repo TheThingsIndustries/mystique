@@ -34,7 +34,6 @@ func Websocket(handle func(Conn)) http.Handler {
 			for _, protocol := range config.Protocol {
 				switch protocol {
 				case "mqtt", "mqttv3.1":
-				default:
 					selectedProtocol = protocol
 					break
 				}
