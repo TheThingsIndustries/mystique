@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -305,6 +306,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 	connect, ok := pkt.(*packet.ConnectPacket)
 	if !ok {
 		logger.Warn("First packet is not CONNECT")
+		err = errors.New("First packet is not CONNECT")
 		return
 	}
 
