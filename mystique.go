@@ -47,10 +47,10 @@ func Configure(binaryName string) {
 	pflag.BoolP("debug", "d", false, "Print debug logs")
 	pflag.String("listen.tcp", ":1883", "TCP address for MQTT server to listen on")
 	pflag.String("listen.tls", ":8883", "TLS address for MQTT server to listen on")
-	pflag.String("listen.http", ":8080", "TCP address for HTTP+websocket server to listen on")
-	pflag.String("listen.https", ":8443", "TLS address for HTTP+websocket server to listen on")
+	pflag.String("listen.http", ":1880", "TCP address for HTTP+websocket server to listen on")
+	pflag.String("listen.https", ":1443", "TLS address for HTTP+websocket server to listen on")
 	pflag.String("websocket.pattern", "/mqtt", "URL pattern for websocket server to be registered on")
-	pflag.String("listen.status", ":6060", "Address for status server to listen on")
+	pflag.String("listen.status", ":9383", "Address for status server to listen on")
 	pflag.String("tls.cert", "", "Location of the TLS certificate")
 	pflag.String("tls.key", "", "Location of the TLS key")
 

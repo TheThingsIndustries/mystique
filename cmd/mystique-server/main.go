@@ -6,9 +6,9 @@
 //
 //     Options:
 //     -d, --debug                      Print debug logs
-//         --listen.http string         TCP address for HTTP+websocket server to listen on (default ":8080")
-//         --listen.https string        TLS address for HTTP+websocket server to listen on (default ":8443")
-//         --listen.status string       Address for status server to listen on (default ":6060")
+//         --listen.http string         TCP address for HTTP+websocket server to listen on (default ":1880")
+//         --listen.https string        TLS address for HTTP+websocket server to listen on (default ":1443")
+//         --listen.status string       Address for status server to listen on (default ":9383")
 //         --listen.tcp string          TCP address for MQTT server to listen on (default ":1883")
 //         --listen.tls string          TLS address for MQTT server to listen on (default ":8883")
 //         --tls.cert string            Location of the TLS certificate
