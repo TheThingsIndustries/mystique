@@ -78,11 +78,12 @@ func Configure(binaryName string) {
 func RunServer(s server.Server) {
 	wss := mqttnet.Websocket(s.Handle)
 
-	if listenStatus := viper.GetString("listen.status"); listenStatus != "" {
+	if listen := viper.GetString("listen.status"); listen != "" {
 		http.Handle("/mqtt", wss)
 		http.Handle("/metrics", promhttp.Handler())
-		http.Handle("/inspect/sessions", inspect.Sessions(s))
-		go http.ListenAndServe(listenStatus, nil)
+		http.Handle("/debug/sessions", inspect.Sessions(s))
+		logger.WithField("address", listen).Info("Starting status+debug+metrics server")
+		go http.ListenAndServe(listen, nil)
 	}
 
 	if listen := viper.GetString("listen.tcp"); listen != "" {
@@ -147,7 +148,7 @@ func RunServer(s server.Server) {
 	}
 
 	if listen := viper.GetString("listen.http"); listen != "" {
-		logger.WithField("address", listen).Info("Starting HTTP server")
+		logger.WithField("address", listen).Info("Starting HTTP+ws server")
 		lis, err := net.Listen("tcp", listen)
 		if err != nil {
 			logger.WithError(err).Fatal("Could not start server")
@@ -170,7 +171,7 @@ func RunServer(s server.Server) {
 				logger.WithError(err).Fatal("Could not read TLS keypair")
 			}
 
-			logger.WithField("address", listen).Info("Starting HTTPS server")
+			logger.WithField("address", listen).Info("Starting HTTPS+wss server")
 			tlsLis, err := tls.Listen("tcp", listen, &tls.Config{
 				Certificates: []tls.Certificate{cert},
 			})
