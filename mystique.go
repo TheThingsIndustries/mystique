@@ -83,14 +83,19 @@ func RunServer(s server.Server) {
 		http.Handle("/metrics", promhttp.Handler())
 		http.Handle("/debug/sessions", inspect.Sessions(s))
 		logger.WithField("address", listen).Info("Starting status+debug+metrics server")
-		go http.ListenAndServe(listen, nil)
+		go func() {
+			err := http.ListenAndServe(listen, nil)
+			if err != nil {
+				logger.WithError(err).Fatal("Could not start status+debug+metrics server")
+			}
+		}
 	}
 
 	if listen := viper.GetString("listen.tcp"); listen != "" {
 		logger.WithField("address", listen).Info("Starting MQTT server")
 		lis, err := mqttnet.Listen("tcp", listen)
 		if err != nil {
-			logger.WithError(err).Fatal("Could not start server")
+			logger.WithError(err).Fatal("Could not start MQTT server")
 		}
 		defer lis.Close()
 
@@ -119,7 +124,7 @@ func RunServer(s server.Server) {
 				Certificates: []tls.Certificate{cert},
 			})
 			if err != nil {
-				logger.WithError(err).Fatal("Could not start server")
+				logger.WithError(err).Fatal("Could not start MQTT+TLS server")
 			}
 			defer tlsLis.Close()
 
@@ -151,14 +156,14 @@ func RunServer(s server.Server) {
 		logger.WithField("address", listen).Info("Starting HTTP+ws server")
 		lis, err := net.Listen("tcp", listen)
 		if err != nil {
-			logger.WithError(err).Fatal("Could not start server")
+			logger.WithError(err).Fatal("Could not start HTTP+ws server")
 		}
 		defer lis.Close()
 
 		go func() {
 			err := http.Serve(lis, mux)
 			if err != nil {
-				logger.WithError(err).Error("Could not serve HTTP")
+				logger.WithError(err).Error("Could not serve HTTP+ws")
 			}
 		}()
 	}
@@ -176,14 +181,14 @@ func RunServer(s server.Server) {
 				Certificates: []tls.Certificate{cert},
 			})
 			if err != nil {
-				logger.WithError(err).Fatal("Could not start server")
+				logger.WithError(err).Fatal("Could not start HTTPS+wss server")
 			}
 			defer tlsLis.Close()
 
 			go func() {
 				err := http.Serve(tlsLis, mux)
 				if err != nil {
-					logger.WithError(err).Error("Could not serve HTTP")
+					logger.WithError(err).Error("Could not serve HTTPS+wss")
 				}
 			}()
 		}
