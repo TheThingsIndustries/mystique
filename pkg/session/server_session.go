@@ -14,12 +14,14 @@ import (
 )
 
 type serverSession struct {
+	// BEGIN align on 32 bit machines
+	publishCount  uint64
+	deliveryCount uint64
+	// END align on 32 bit machines
+
 	session
 
 	expires time.Time
-
-	publishCount  uint64
-	deliveryCount uint64
 
 	filteredDeliveryMu sync.Mutex
 	filteredDelivery   chan *packet.PublishPacket
