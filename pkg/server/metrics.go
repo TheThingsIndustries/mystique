@@ -40,7 +40,7 @@ var publishLatency = prometheus.NewHistogram(
 		Subsystem: "server",
 		Name:      "publish_latency_seconds",
 		Help:      "Histogram of publish latency (seconds).",
-		Buckets:   []float64{0.00025, 0.0005, 0.001, 0.0025, .005, .01, .025, .05, .1},
+		Buckets:   []float64{0.00025, 0.0005, 0.001, 0.0025, .005, .01, .025, .05, .1, .25, .5, 1},
 	},
 )
 
