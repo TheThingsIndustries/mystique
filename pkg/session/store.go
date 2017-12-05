@@ -28,10 +28,8 @@ type Store interface {
 
 // SimpleStore returns a simple (inefficient) Store implementation and starts a goroutine that keeps the store clean
 func SimpleStore(ctx context.Context) Store {
-	s := &simpleStore{
-		ctx:      ctx,
-		sessions: make(map[string]*serverSession),
-	}
+	s := &simpleStore{ctx: ctx}
+	stores = append(stores, s)
 	go func() {
 		for {
 			select {
@@ -46,59 +44,54 @@ func SimpleStore(ctx context.Context) Store {
 }
 
 type simpleStore struct {
-	mu       sync.RWMutex
+	mu       sync.Mutex // GetOrCreate and Cleanup are mutually exclusive
 	ctx      context.Context
-	sessions map[string]*serverSession
+	sessions sync.Map
 }
 
-func (s *simpleStore) All() []ServerSession {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	sessions := make([]ServerSession, 0, len(s.sessions))
-	for _, session := range s.sessions {
-		sessions = append(sessions, session)
-	}
-	return sessions
+func (s *simpleStore) All() (sessions []ServerSession) {
+	s.sessions.Range(func(_ interface{}, value interface{}) bool {
+		if session, ok := value.(*serverSession); ok {
+			sessions = append(sessions, session)
+		}
+		return true
+	})
+	return
 }
 
 func (s *simpleStore) Cleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
-	for id, session := range s.sessions {
+	s.sessions.Range(func(idI interface{}, sessionI interface{}) bool {
+		id := idI.(string)
+		session := sessionI.(*serverSession)
 		session.mu.RLock()
 		if !session.expires.IsZero() && session.expires.Before(now) {
-			delete(s.sessions, id)
+			s.sessions.Delete(id)
 		}
 		session.mu.RUnlock()
-	}
+		return true
+	})
 }
 
 func (s *simpleStore) GetOrCreate(id string) ServerSession {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if sess, ok := s.sessions[id]; ok {
-		return sess
-	}
-	sess := &serverSession{session: newSession(s.ctx)}
-	s.sessions[id] = sess
-	sessionsGauge.Inc()
-	return sess
+	sessionI, _ := s.sessions.LoadOrStore(id, &serverSession{session: newSession(s.ctx)})
+	return sessionI.(*serverSession)
 }
 
 func (s *simpleStore) Delete(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.sessions[id]; ok {
-		delete(s.sessions, id)
-		sessionsGauge.Dec()
-	}
+	s.sessions.Delete(id)
 }
 
 func (s *simpleStore) Publish(pkt *packet.PublishPacket) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, sess := range s.sessions {
-		go sess.Publish(pkt)
-	}
+	s.sessions.Range(func(_ interface{}, sessionI interface{}) bool {
+		session := sessionI.(*serverSession)
+		go session.Publish(pkt)
+		return true
+	})
 }
