@@ -88,7 +88,7 @@ func RunServer(s server.Server) {
 			if err != nil {
 				logger.WithError(err).Fatal("Could not start status+debug+metrics server")
 			}
-		}
+		}()
 	}
 
 	if listen := viper.GetString("listen.tcp"); listen != "" {
