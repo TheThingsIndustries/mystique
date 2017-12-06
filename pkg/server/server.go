@@ -269,7 +269,7 @@ func (s *server) Handle(conn net.Conn) {
 				return
 			}
 			logger := logger
-			if !pkt.Retain {
+			if !pkt.Retain && !pkt.Duplicate && !pkt.Received.IsZero() {
 				latency := time.Since(pkt.Received)
 				logger = logger.WithField("latency", latency)
 				publishLatency.Observe(latency.Seconds())
