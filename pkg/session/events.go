@@ -16,10 +16,11 @@ type EventMetadata struct {
 }
 
 func (s *serverSession) PublishEvent(name string, e EventMetadata) {
+	id := s.ID()
 	go func() {
 		pkt := &packet.PublishPacket{
 			Received:  time.Now(),
-			TopicName: fmt.Sprintf("$SYS/session/%s/%s", s.ID(), name),
+			TopicName: fmt.Sprintf("$SYS/session/%s/%s", id, name),
 		}
 		pkt.Message, _ = json.Marshal(e)
 		s.filteredDeliveryMu.Lock()

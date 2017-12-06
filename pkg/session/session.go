@@ -186,14 +186,18 @@ func (s *session) Context() context.Context { return s.ctx }
 
 func (s *session) ID() (id string) {
 	s.mu.RLock()
-	id = s.authinfo.ClientID
+	if s.authinfo != nil {
+		id = s.authinfo.ClientID
+	}
 	s.mu.RUnlock()
 	return
 }
 
 func (s *session) Username() (username string) {
 	s.mu.RLock()
-	username = s.authinfo.Username
+	if s.authinfo != nil {
+		username = s.authinfo.Username
+	}
 	s.mu.RUnlock()
 	return
 }
