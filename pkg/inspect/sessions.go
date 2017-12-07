@@ -57,7 +57,7 @@ var tmpl = template.Must(template.New("inspect").Parse(`
 <section class="session">
 <h2>Session <code>{{ .ID }}</code><br><small>
 <span>user <code>{{ .Username }}</code></span>
-<span>address <code>{{ .RemoteAddr }}</code></span>
+<span>address <code>{{ .RemoteAddr }}</code>{{ with .RemoteHost }} (<code>{{ . }}</code>){{ end }}</span>
 {{ with .Stats }}
 <span>produced <code>{{ .Delivered }}</code></span>
 <span>consumed <code>{{ .Published }}</code></span>

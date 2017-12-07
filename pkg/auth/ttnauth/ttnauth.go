@@ -128,8 +128,14 @@ func (a *TTNAuth) applicationRights(applicationID, key string) ([]string, error)
 }
 
 // Connect or return error code
-func (a *TTNAuth) Connect(info *auth.Info) error {
-	logger := a.logger.WithFields(log.F{"username": info.Username, "remote_addr": info.RemoteAddr})
+func (a *TTNAuth) Connect(info *auth.Info) (err error) {
+	logger := a.logger.WithFields(log.F{
+		"username":    info.Username,
+		"remote_addr": info.RemoteAddr,
+	})
+	if info.RemoteHost != "" {
+		logger = logger.WithField("remote_host", info.RemoteHost)
+	}
 
 	var access Access
 	info.Metadata = &access

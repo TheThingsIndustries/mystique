@@ -53,6 +53,9 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 	s.expires = time.Time{}
 
 	s.logger = s.logger.WithFields(log.F{"client_id": authInfo.ClientID, "remote_addr": conn.RemoteAddr().String()})
+	if authInfo.RemoteHost != "" {
+		s.logger = s.logger.WithField("remote_host", authInfo.RemoteHost)
+	}
 	if authInfo.Username != "" {
 		s.logger = s.logger.WithField("username", authInfo.Username)
 	}

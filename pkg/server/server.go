@@ -8,12 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
-	"github.com/TheThingsIndustries/mystique/pkg/net"
+	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/retained"
 	"github.com/TheThingsIndustries/mystique/pkg/session"
@@ -44,7 +45,7 @@ func WithFirehose(f chan<- *packet.PublishPacket) Option {
 
 // Server interface
 type Server interface {
-	Handle(conn net.Conn)
+	Handle(conn mqttnet.Conn)
 	Sessions() session.Store
 	Publish(pkt *packet.PublishPacket)
 }
@@ -81,7 +82,7 @@ func (s *server) Publish(pkt *packet.PublishPacket) {
 }
 
 // Handle a connection
-func (s *server) Handle(conn net.Conn) {
+func (s *server) Handle(conn mqttnet.Conn) {
 	remoteAddr := conn.RemoteAddr().String()
 	evt := EventMetadata{RemoteAddr: remoteAddr}
 	logger := s.logger.WithField("remote_addr", remoteAddr)
@@ -294,7 +295,7 @@ var boot = time.Now()
 // "/" -> "." (because we use clientID in topic names for events)
 var replaceClientID = strings.NewReplacer("/", ".")
 
-func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, err error) {
+func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession, err error) {
 	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
 	evt := EventMetadata{RemoteAddr: conn.RemoteAddr().String()}
 
@@ -347,6 +348,13 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		ClientID:   connect.ClientID,
 		Username:   connect.Username,
 		Password:   connect.Password,
+	}
+
+	if host, _, err := net.SplitHostPort(authInfo.RemoteAddr); err == nil {
+		if host, err := net.LookupAddr(host); err == nil && len(host) > 0 {
+			authInfo.RemoteHost = host[0]
+			logger = logger.WithField("remote_host", authInfo.RemoteHost)
+		}
 	}
 
 	if s.auth != nil {
