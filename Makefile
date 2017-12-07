@@ -7,6 +7,8 @@ ifndef GOARCH
 	GOARCH := $(shell go env GOARCH)
 endif
 
+GO_PATH := $(shell echo $(GOPATH) | awk -F':' '{ print $$1 }')
+
 SHELL := bash
 
 .PHONY: deps
@@ -41,7 +43,7 @@ clean:
 	rm -rf release
 
 release/%-$(GOOS)-$(GOARCH): cmd/%/main.go
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -a -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -gcflags="-trimpath=$(GO_PATH)" -asmflags="-trimpath=$(GO_PATH)" -a -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
 
 .PHONY: release
 
