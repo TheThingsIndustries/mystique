@@ -88,6 +88,8 @@ type ServerSession interface {
 
 	RemoteAddr() string
 
+	RemoteHost() string
+
 	Stats() Stats
 
 	// Handle a Connect packet

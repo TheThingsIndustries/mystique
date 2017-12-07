@@ -82,6 +82,15 @@ func (s *serverSession) RemoteAddr() string {
 	return s.authinfo.RemoteAddr
 }
 
+func (s *serverSession) RemoteHost() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.authinfo == nil {
+		return ""
+	}
+	return s.authinfo.RemoteHost
+}
+
 func (s *serverSession) Stats() Stats {
 	return Stats{
 		Published: atomic.LoadUint64(&s.publishCount),
