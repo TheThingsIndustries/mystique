@@ -95,9 +95,9 @@ type Access struct {
 	Root         bool
 	ReadPrefix   string
 	Read         []string
-	ReadPattern  []*regexp.Regexp
+	ReadPattern  [][]string
 	Write        []string
-	WritePattern []*regexp.Regexp
+	WritePattern [][]string
 }
 
 // IsEmpty returns true if there is no access
@@ -195,11 +195,14 @@ func (a *TTNAuth) Connect(info *auth.Info) (err error) {
 			for _, right := range appRights {
 				switch right {
 				case "messages:up:r":
-					access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/up"))
-					access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/events"))
-					access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events"))
+					access.ReadPattern = append(access.ReadPattern, []string{info.Username, "devices", topic.PartWildcard, "up"})
+					access.ReadPattern = append(access.ReadPattern, []string{info.Username, "devices", topic.PartWildcard, "up", topic.Wildcard})
+					access.ReadPattern = append(access.ReadPattern, []string{info.Username, "devices", topic.PartWildcard, "events"})
+					access.ReadPattern = append(access.ReadPattern, []string{info.Username, "devices", topic.PartWildcard, "events", topic.Wildcard})
+					access.ReadPattern = append(access.ReadPattern, []string{info.Username, "events"})
+					access.ReadPattern = append(access.ReadPattern, []string{info.Username, "events", topic.Wildcard})
 				case "messages:down:w":
-					access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
+					access.WritePattern = append(access.WritePattern, []string{info.Username, "devices", "+", "down"})
 				}
 			}
 		}
@@ -226,6 +229,33 @@ func (a *TTNAuth) Connect(info *auth.Info) (err error) {
 	}
 
 	return nil
+}
+
+// RouterAccess gives the access rights for a Router
+var RouterAccess = Access{
+	Read: []string{"connect", "disconnect"},
+	WritePattern: [][]string{
+		{topic.PartWildcard, "down"},
+	},
+	ReadPattern: [][]string{
+		{topic.PartWildcard, "up"},
+		{topic.PartWildcard, "status"},
+	},
+}
+
+// HandlerAccess gives the access rights for a Handler
+var HandlerAccess = Access{
+	WritePattern: [][]string{
+		{topic.PartWildcard, "devices", topic.PartWildcard, "up"},
+		{topic.PartWildcard, "devices", topic.PartWildcard, "up", topic.Wildcard},
+		{topic.PartWildcard, "devices", topic.PartWildcard, "events"},
+		{topic.PartWildcard, "devices", topic.PartWildcard, "events", topic.Wildcard},
+		{topic.PartWildcard, "events"},
+		{topic.PartWildcard, "events", topic.Wildcard},
+	},
+	ReadPattern: [][]string{
+		{topic.PartWildcard, "devices", topic.PartWildcard, "down"},
+	},
 }
 
 // Subscribe allows the auth plugin to replace wildcards or to lower the QoS of a subscription.
@@ -276,8 +306,9 @@ func (a *TTNAuth) CanRead(info *auth.Info, t string) bool {
 			return true
 		}
 	}
+	topicPath := strings.Split(t, topic.Separator)
 	for _, allowed := range access.ReadPattern {
-		if allowed.MatchString(t) {
+		if topic.MatchPath(topicPath, allowed) {
 			return true
 		}
 	}
@@ -302,8 +333,9 @@ func (a *TTNAuth) CanWrite(info *auth.Info, t string) bool {
 			return true
 		}
 	}
+	topicPath := strings.Split(t, topic.Separator)
 	for _, allowed := range access.WritePattern {
-		if allowed.MatchString(t) {
+		if topic.MatchPath(topicPath, allowed) {
 			return true
 		}
 	}

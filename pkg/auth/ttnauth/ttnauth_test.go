@@ -149,4 +149,32 @@ func TestTTNAuth(t *testing.T) {
 		a.So(topic, should.Equal, "test/up")
 	}
 
+	hdl := &auth.Info{
+		Interface: s,
+		Username:  "$handler",
+		Metadata:  &HandlerAccess,
+	}
+
+	a.So(hdl.CanWrite("test/devices/test/up"), should.BeTrue)
+	a.So(hdl.CanWrite("test/devices/test/up/temperature"), should.BeTrue)
+	a.So(hdl.CanWrite("test/devices/test/events"), should.BeTrue)
+	a.So(hdl.CanWrite("test/devices/test/events/downlink"), should.BeTrue)
+	a.So(hdl.CanRead("test/devices/test/down"), should.BeTrue)
+	a.So(hdl.CanWrite("test/events"), should.BeTrue)
+	a.So(hdl.CanWrite("test/events/activate"), should.BeTrue)
+	a.So(hdl.CanRead("$SYS/#"), should.BeFalse)
+	a.So(hdl.CanWrite("$SYS/#"), should.BeFalse)
+
+	rtr := &auth.Info{
+		Interface: s,
+		Username:  "$router",
+		Metadata:  &RouterAccess,
+	}
+
+	a.So(rtr.CanWrite("connect"), should.BeFalse)
+	a.So(rtr.CanRead("connect"), should.BeTrue)
+	a.So(rtr.CanWrite("test/down"), should.BeTrue)
+	a.So(rtr.CanRead("test/up"), should.BeTrue)
+	a.So(rtr.CanRead("$SYS/#"), should.BeFalse)
+	a.So(rtr.CanWrite("$SYS/#"), should.BeFalse)
 }
