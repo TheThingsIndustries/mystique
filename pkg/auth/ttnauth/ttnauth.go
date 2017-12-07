@@ -41,6 +41,7 @@ func New(servers map[string]string) *TTNAuth {
 // TTNAuth implements authentication for TTN
 type TTNAuth struct {
 	logger     log.Interface
+	penalty    time.Duration
 	client     *http.Client
 	cache      *cache
 	servers    map[string]string
@@ -65,6 +66,11 @@ func (a *TTNAuth) AddSuperUser(username string, password []byte, access Access) 
 		password: password,
 		Access:   access,
 	}
+}
+
+// SetPenalty sets the time penalty for a failed login
+func (a *TTNAuth) SetPenalty(d time.Duration) {
+	a.penalty = d
 }
 
 type superUser struct {
@@ -135,6 +141,14 @@ func (a *TTNAuth) Connect(info *auth.Info) (err error) {
 	})
 	if info.RemoteHost != "" {
 		logger = logger.WithField("remote_host", info.RemoteHost)
+	}
+
+	if a.penalty > 0 {
+		defer func() {
+			if err != nil {
+				time.Sleep(a.penalty)
+			}
+		}()
 	}
 
 	var access Access

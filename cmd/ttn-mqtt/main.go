@@ -7,6 +7,7 @@
 // Options:
 //         --auth.handler.password string          Handler password (leave empty to disable user)
 //         --auth.handler.username string          Handler username (default "$handler")
+//         --auth.penalty duration                 Time penalty for a failed login
 //         --auth.root.password string             Root password (leave empty to disable user)
 //         --auth.root.username string             Root username (default "$root")
 //         --auth.router.password string           Router password (leave empty to disable user)
@@ -45,6 +46,8 @@ func main() {
 
 	pflag.String("auth.handler.username", "$handler", "Handler username")
 	pflag.String("auth.handler.password", "", "Handler password (leave empty to disable user)")
+
+	pflag.Duration("auth.penalty", 0, "Time penalty for a failed login")
 
 	pflag.StringSlice("auth.ttn.account-server", []string{
 		"ttn-account-v2=https://account.thethingsnetwork.org",
@@ -120,6 +123,8 @@ func main() {
 			},
 		})
 	}
+
+	auth.SetPenalty(viper.GetDuration("auth.penalty"))
 
 	s := server.New(mystique.Context(), server.WithAuth(auth))
 
