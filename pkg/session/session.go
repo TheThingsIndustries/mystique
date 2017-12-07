@@ -16,7 +16,7 @@ import (
 )
 
 // PublishBufferSize sets the size of publish channel buffers
-var PublishBufferSize = 512
+var PublishBufferSize = 64
 
 // Session interface shared in both client and server
 type Session interface {
