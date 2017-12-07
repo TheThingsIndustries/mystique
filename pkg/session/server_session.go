@@ -11,6 +11,7 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 type serverSession struct {
@@ -67,6 +68,7 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 			TopicName: pkt.WillTopic,
 			Message:   pkt.WillMessage,
 		}
+		s.will.TopicParts = topic.Split(s.will.TopicName)
 		s.PublishEvent("session.set_will", EventMetadata{Topic: s.will.TopicName})
 	}
 
@@ -211,21 +213,22 @@ func (s *serverSession) SubscriptionTopics() []string {
 
 func (s *serverSession) Publish(pkt *packet.PublishPacket) {
 	s.mu.RLock()
-	canRead := s.authinfo.CanRead(pkt.TopicName)
+	canRead := s.authinfo.CanRead(pkt.TopicParts...)
 	s.mu.RUnlock()
 	if !canRead {
 		return
 	}
-	qos, ok := s.subscriptions.Match(pkt.TopicName)
+	qos, ok := s.subscriptions.Match(pkt.TopicParts...)
 	if !ok {
 		return
 	}
 	pub := &packet.PublishPacket{
-		Received:  pkt.Received,
-		Retain:    pkt.Retain,
-		QoS:       qos,
-		TopicName: pkt.TopicName,
-		Message:   pkt.Message,
+		Received:   pkt.Received,
+		Retain:     pkt.Retain,
+		QoS:        qos,
+		TopicName:  pkt.TopicName,
+		TopicParts: pkt.TopicParts,
+		Message:    pkt.Message,
 	}
 	if pub.QoS > pkt.QoS {
 		pub.QoS = pkt.QoS
@@ -245,7 +248,7 @@ func (s *serverSession) DeliveryChan() <-chan *packet.PublishPacket {
 		s.wg.Add(1)
 		go func() {
 			for pkt := range delivery {
-				if authinfo.CanWrite(pkt.TopicName) {
+				if authinfo.CanWrite(pkt.TopicParts...) {
 					atomic.AddUint64(&s.deliveryCount, 1)
 					s.filteredDelivery <- pkt
 				} else {

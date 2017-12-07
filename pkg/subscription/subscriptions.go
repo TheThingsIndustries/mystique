@@ -4,7 +4,6 @@
 package subscription
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
@@ -35,7 +34,7 @@ func (s *List) Add(filter string, qos byte) (added bool) {
 	defer s.mu.Unlock()
 	sub := subscription{
 		filter:     filter,
-		filterPath: strings.Split(filter, topic.Separator),
+		filterPath: topic.Split(filter),
 		qos:        qos,
 	}
 	for i, existing := range s.subscriptions {
@@ -73,15 +72,17 @@ func (s *List) Clear() {
 }
 
 // Match the topic to the subscriptions and return the maximum QoS
-func (s *List) Match(t string) (qos byte, found bool) {
-	if len(t) == 0 {
+func (s *List) Match(t ...string) (qos byte, found bool) {
+	switch len(t) {
+	case 0:
 		return
+	case 1:
+		t = topic.Split(t[0])
 	}
-	topicPath := strings.Split(t, topic.Separator)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, sub := range s.subscriptions {
-		if sub.filter == t || sub.Match(topicPath) {
+		if sub.Match(t) {
 			found = true
 			if sub.qos > qos {
 				qos = sub.qos
@@ -92,15 +93,17 @@ func (s *List) Match(t string) (qos byte, found bool) {
 }
 
 // Matches for the topic
-func (s *List) Matches(t string) (matches []string) {
-	if len(t) == 0 {
+func (s *List) Matches(t ...string) (matches []string) {
+	switch len(t) {
+	case 0:
 		return
+	case 1:
+		t = topic.Split(t[0])
 	}
-	topicPath := strings.Split(t, topic.Separator)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, sub := range s.subscriptions {
-		if sub.filter == t || sub.Match(topicPath) {
+		if sub.Match(t) {
 			matches = append(matches, sub.filter)
 		}
 	}

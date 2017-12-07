@@ -3,7 +3,11 @@
 // Package auth defines the authentication interface for MQTT.
 package auth
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
+)
 
 // Interface for MQTT authentication
 type Interface interface {
@@ -15,10 +19,10 @@ type Interface interface {
 	Subscribe(info *Info, requestedTopic string, requestedQoS byte) (acceptedTopic string, acceptedQoS byte, err error)
 
 	// Can the session read from the (application-layer) topic
-	CanRead(info *Info, topic string) bool
+	CanRead(info *Info, topic ...string) bool
 
 	// Can the session write to the (application-layer) topic
-	CanWrite(info *Info, topic string) bool
+	CanWrite(info *Info, topic ...string) bool
 }
 
 // Info for an MQTT user
@@ -45,23 +49,29 @@ func (i *Info) Subscribe(requestedTopic string, requestedQoS byte) (acceptedTopi
 }
 
 // CanRead returns true iff given the info, the client can read on a topic
-func (i *Info) CanRead(topic string) bool {
+func (i *Info) CanRead(t ...string) bool {
+	if len(t) == 1 {
+		t = topic.Split(t[0])
+	}
 	if i == nil {
 		return false // won't allow that if there's no auth info
 	}
 	if i.Interface == nil {
 		return true
 	}
-	return i.Interface.CanRead(i, topic)
+	return i.Interface.CanRead(i, t...)
 }
 
 // CanWrite returns true iff given the info, the client can write on a topic
-func (i *Info) CanWrite(topic string) bool {
+func (i *Info) CanWrite(t ...string) bool {
+	if len(t) == 1 {
+		t = topic.Split(t[0])
+	}
 	if i == nil {
 		return false // won't allow that if there's no auth info
 	}
 	if i.Interface == nil {
 		return true
 	}
-	return i.Interface.CanWrite(i, topic)
+	return i.Interface.CanWrite(i, t...)
 }

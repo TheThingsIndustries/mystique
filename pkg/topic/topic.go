@@ -16,9 +16,19 @@ const (
 	InternalPrefix = "$"
 )
 
+// Split a topic into parts
+func Split(topic string) []string {
+	return strings.Split(topic, Separator)
+}
+
+// Join topic parts
+func Join(parts []string) string {
+	return strings.Join(parts, Separator)
+}
+
 // Match a topic to a filter
 func Match(topic, filter string) bool {
-	return MatchPath(strings.Split(topic, Separator), strings.Split(filter, Separator))
+	return MatchPath(Split(topic), Split(filter))
 }
 
 // MatchPath matches a separated topic to a filter
@@ -60,7 +70,7 @@ func ValidateFilter(filter string) error {
 	if strings.ContainsRune(filter, '\u0000') {
 		return errors.New("Topic filter can not contain NUL character")
 	}
-	parts := strings.Split(filter, Separator)
+	parts := Split(filter)
 	for i, part := range parts {
 		if (strings.ContainsAny(part, Wildcard+PartWildcard) && len(part) != 1) ||
 			(part == Wildcard && i != len(parts)-1) {

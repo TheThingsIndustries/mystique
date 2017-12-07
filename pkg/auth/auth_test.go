@@ -26,10 +26,10 @@ func (a alwaysAuth) Subscribe(info *Info, requestedTopic string, requestedQoS by
 	}
 	return
 }
-func (a alwaysAuth) CanRead(info *Info, topic string) bool {
+func (a alwaysAuth) CanRead(info *Info, topic ...string) bool {
 	return a.ok
 }
-func (a alwaysAuth) CanWrite(info *Info, topic string) bool {
+func (a alwaysAuth) CanWrite(info *Info, topic ...string) bool {
 	return a.ok
 }
 

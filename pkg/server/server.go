@@ -18,6 +18,7 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/retained"
 	"github.com/TheThingsIndustries/mystique/pkg/session"
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // Option for the server
@@ -164,6 +165,9 @@ func (s *server) Handle(conn mqttnet.Conn) {
 			switch pkt := pkt.(type) {
 			case *packet.PublishPacket:
 				pkt.Received = time.Now().UTC()
+				if pkt.TopicName != "" {
+					pkt.TopicParts = topic.Split(pkt.TopicName)
+				}
 				logger.Debug("Read PUBLISH")
 				receivedCounter.WithLabelValues("publish").Inc()
 				s.retainedMessages.Retain(pkt)
@@ -275,6 +279,7 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				logger = logger.WithField("latency", latency)
 				publishLatency.Observe(latency.Seconds())
 			}
+			pkt.TopicParts = nil
 			logger.Debug("Write PUBLISH")
 			sentCounter.WithLabelValues("publish").Inc()
 			err = conn.Send(pkt)

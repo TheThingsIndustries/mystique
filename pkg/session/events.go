@@ -4,10 +4,10 @@ package session
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // EventMetadata for server events
@@ -15,12 +15,15 @@ type EventMetadata struct {
 	Topic string `json:"topic,omitempty"`
 }
 
+var eventTopic = []string{"$SYS", "session"}
+
 func (s *serverSession) PublishEvent(name string, e EventMetadata) {
 	go func() {
 		pkt := &packet.PublishPacket{
-			Received:  time.Now(),
-			TopicName: fmt.Sprintf("$SYS/session/%s/%s", s.ID(), name),
+			Received:   time.Now(),
+			TopicParts: append(eventTopic, s.ID(), name),
 		}
+		pkt.TopicName = topic.Join(pkt.TopicParts)
 		pkt.Message, _ = json.Marshal(e)
 		s.filteredDeliveryMu.Lock()
 		defer s.filteredDeliveryMu.Unlock()

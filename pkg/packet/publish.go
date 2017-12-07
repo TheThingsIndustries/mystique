@@ -25,6 +25,7 @@ type PublishPacket struct {
 	Duplicate        bool
 	PacketIdentifier uint16
 	TopicName        string
+	TopicParts       []string
 	Message          []byte
 }
 
