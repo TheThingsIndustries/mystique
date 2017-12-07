@@ -46,6 +46,8 @@ func TestTTNAuth(t *testing.T) {
 	defer ts.Close()
 
 	s := New(map[string]string{"test": ts.URL})
+	s.AuthenticateGateways()
+	s.AuthenticateApplications()
 	s.AddSuperUser("root", []byte("rootpass"), Access{Root: true})
 
 	a.So(s.Connect(&auth.Info{}), should.NotBeNil)
