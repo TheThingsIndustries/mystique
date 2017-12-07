@@ -5,6 +5,8 @@
 // Usage: ttn-mqtt [options]
 //
 // Options:
+//         --auth.applications                     Authenticate Applications (default true)
+//         --auth.gateways                         Authenticate Gateways (default true)
 //         --auth.handler.password string          Handler password (leave empty to disable user)
 //         --auth.handler.username string          Handler username (default "$handler")
 //         --auth.penalty duration                 Time penalty for a failed login
@@ -44,8 +46,12 @@ func main() {
 	pflag.String("auth.router.username", "$router", "Router username")
 	pflag.String("auth.router.password", "", "Router password (leave empty to disable user)")
 
+	pflag.Bool("auth.gateways", true, "Authenticate Gateways")
+
 	pflag.String("auth.handler.username", "$handler", "Handler username")
 	pflag.String("auth.handler.password", "", "Handler password (leave empty to disable user)")
+
+	pflag.Bool("auth.applications", true, "Authenticate Applications")
 
 	pflag.Duration("auth.penalty", 0, "Time penalty for a failed login")
 
@@ -104,6 +110,10 @@ func main() {
 		})
 	}
 
+	if viper.GetBool("auth.gateways") {
+		auth.AuthenticateGateways()
+	}
+
 	handlerUsername, handlerPassword := viper.GetString("auth.handler.username"), viper.GetString("auth.handler.password")
 	if handlerUsername != "" && handlerPassword != "" {
 		if ttnIDRegexp.MatchString(handlerUsername) {
@@ -122,6 +132,10 @@ func main() {
 				regexp.MustCompile("^" + ttnauth.IDRegexp + "/devices/" + ttnauth.IDRegexp + "/down$"),
 			},
 		})
+	}
+
+	if viper.GetBool("auth.applications") {
+		auth.AuthenticateApplications()
 	}
 
 	auth.SetPenalty(viper.GetDuration("auth.penalty"))

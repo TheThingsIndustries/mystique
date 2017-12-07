@@ -40,12 +40,14 @@ func New(servers map[string]string) *TTNAuth {
 
 // TTNAuth implements authentication for TTN
 type TTNAuth struct {
-	logger     log.Interface
-	penalty    time.Duration
-	client     *http.Client
-	cache      *cache
-	servers    map[string]string
-	superUsers map[string]superUser
+	logger       log.Interface
+	penalty      time.Duration
+	gateways     bool
+	applications bool
+	client       *http.Client
+	cache        *cache
+	servers      map[string]string
+	superUsers   map[string]superUser
 }
 
 // SetLogger sets the logger interface.
@@ -71,6 +73,16 @@ func (a *TTNAuth) AddSuperUser(username string, password []byte, access Access) 
 // SetPenalty sets the time penalty for a failed login
 func (a *TTNAuth) SetPenalty(d time.Duration) {
 	a.penalty = d
+}
+
+// AuthenticateGateways enables authentication of gateways
+func (a *TTNAuth) AuthenticateGateways() {
+	a.gateways = true
+}
+
+// AuthenticateApplications enables authentication of applications
+func (a *TTNAuth) AuthenticateApplications() {
+	a.applications = true
 }
 
 type superUser struct {
@@ -175,31 +187,35 @@ func (a *TTNAuth) Connect(info *auth.Info) (err error) {
 
 		logger.Debug("Authenticating using account server")
 
-		appRights, err := a.applicationRights(info.Username, string(info.Password))
-		if err != nil {
-			return packet.ConnectNotAuthorized
-		}
-		for _, right := range appRights {
-			switch right {
-			case "messages:up:r":
-				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/up"))
-				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/events"))
-				access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events"))
-			case "messages:down:w":
-				access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
+		if a.applications {
+			appRights, err := a.applicationRights(info.Username, string(info.Password))
+			if err != nil {
+				return packet.ConnectNotAuthorized
+			}
+			for _, right := range appRights {
+				switch right {
+				case "messages:up:r":
+					access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/up"))
+					access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/events"))
+					access.ReadPattern = append(access.ReadPattern, regexp.MustCompile("^"+info.Username+"/events"))
+				case "messages:down:w":
+					access.WritePattern = append(access.WritePattern, regexp.MustCompile("^"+info.Username+"/devices/"+IDRegexp+"/down$"))
+				}
 			}
 		}
 
-		gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
-		if err != nil {
-			return packet.ConnectNotAuthorized
-		}
-		if len(gtwRights) > 0 {
-			access.Write = append(access.Write, info.Username+"/up")
-			access.Read = append(access.Read, info.Username+"/down")
-			access.Write = append(access.Write, info.Username+"/status")
-			access.Write = append(access.Write, "connect")
-			access.Write = append(access.Write, "disconnect")
+		if a.gateways {
+			gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
+			if err != nil {
+				return packet.ConnectNotAuthorized
+			}
+			if len(gtwRights) > 0 {
+				access.Write = append(access.Write, info.Username+"/up")
+				access.Read = append(access.Read, info.Username+"/down")
+				access.Write = append(access.Write, info.Username+"/status")
+				access.Write = append(access.Write, "connect")
+				access.Write = append(access.Write, "disconnect")
+			}
 		}
 
 		a.cache.Set(info.Username, info.Password, access)
