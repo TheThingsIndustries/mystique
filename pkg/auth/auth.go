@@ -29,7 +29,6 @@ type Interface interface {
 type Info struct {
 	Interface
 	RemoteAddr string
-	RemoteHost string
 	Transport  string
 	ClientID   string
 	Username   string

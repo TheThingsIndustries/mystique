@@ -3,6 +3,7 @@
 package session
 
 import (
+	gnet "net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,9 +55,6 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 	s.expires = time.Time{}
 
 	s.logger = s.logger.WithFields(log.F{"client_id": authInfo.ClientID, "remote_addr": conn.RemoteAddr().String()})
-	if authInfo.RemoteHost != "" {
-		s.logger = s.logger.WithField("remote_host", authInfo.RemoteHost)
-	}
 	if authInfo.Username != "" {
 		s.logger = s.logger.WithField("username", authInfo.Username)
 	}
@@ -87,10 +85,14 @@ func (s *serverSession) RemoteAddr() string {
 func (s *serverSession) RemoteHost() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.authinfo == nil {
-		return ""
+	if s.authinfo != nil {
+		if host, _, err := gnet.SplitHostPort(s.authinfo.RemoteAddr); err == nil {
+			if host, err := gnet.LookupAddr(host); err == nil && len(host) > 0 {
+				return host[0]
+			}
+		}
 	}
-	return s.authinfo.RemoteHost
+	return ""
 }
 
 func (s *serverSession) Stats() Stats {
