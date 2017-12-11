@@ -41,10 +41,10 @@ func (i *Info) Subscribe(requestedTopic string, requestedQoS byte) (acceptedTopi
 	if i == nil {
 		return requestedTopic, requestedQoS, errors.New("no auth info present")
 	}
-	if i.Interface == nil {
-		return requestedTopic, requestedQoS, nil
+	if iface := i.Interface; iface != nil {
+		return i.Interface.Subscribe(i, requestedTopic, requestedQoS)
 	}
-	return i.Interface.Subscribe(i, requestedTopic, requestedQoS)
+	return requestedTopic, requestedQoS, nil
 }
 
 // CanRead returns true iff given the info, the client can read on a topic
@@ -55,10 +55,10 @@ func (i *Info) CanRead(t ...string) bool {
 	if i == nil {
 		return false // won't allow that if there's no auth info
 	}
-	if i.Interface == nil {
-		return true
+	if iface := i.Interface; iface != nil {
+		return iface.CanRead(i, t...)
 	}
-	return i.Interface.CanRead(i, t...)
+	return true
 }
 
 // CanWrite returns true iff given the info, the client can write on a topic
@@ -69,8 +69,8 @@ func (i *Info) CanWrite(t ...string) bool {
 	if i == nil {
 		return false // won't allow that if there's no auth info
 	}
-	if i.Interface == nil {
-		return true
+	if iface := i.Interface; iface != nil {
+		return iface.CanWrite(i, t...)
 	}
-	return i.Interface.CanWrite(i, t...)
+	return true
 }

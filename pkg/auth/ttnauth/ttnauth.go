@@ -93,7 +93,7 @@ type superUser struct {
 // Access information
 type Access struct {
 	Root       bool
-	ReadPrefix string
+	ReadPrefix string // must not contain `/`
 	Read       [][]string
 	Write      [][]string
 }
@@ -282,19 +282,22 @@ func (a *TTNAuth) Subscribe(info *auth.Info, requestedTopic string, requestedQoS
 
 // CanRead returns true iff the session can read from the topic
 func (a *TTNAuth) CanRead(info *auth.Info, t ...string) bool {
-	if len(t) == 1 {
+	switch len(t) {
+	case 0:
+		return false
+	case 1:
 		t = topic.Split(t[0])
 	}
-	if info.Metadata == nil {
+	access, ok := info.Metadata.(*Access)
+	if !ok {
 		return false
 	}
-	access := info.Metadata.(*Access)
 	if access.Root {
 		// Root has full access
 		return true
 	}
-	if len(t) > 0 && strings.HasPrefix(t[0], topic.InternalPrefix) {
-		// Non-root has no access to internal topics
+	if access.ReadPrefix != "" && t[0] != access.ReadPrefix {
+		// No access if prefix is set and does not match
 		return false
 	}
 	for _, allowed := range access.Read {
@@ -307,18 +310,21 @@ func (a *TTNAuth) CanRead(info *auth.Info, t ...string) bool {
 
 // CanWrite returns true iff the session can write to the topic
 func (a *TTNAuth) CanWrite(info *auth.Info, t ...string) bool {
-	if len(t) == 1 {
+	switch len(t) {
+	case 0:
+		return false
+	case 1:
 		t = topic.Split(t[0])
 	}
-	if info.Metadata == nil {
+	access, ok := info.Metadata.(*Access)
+	if !ok {
 		return false
 	}
-	if len(t) > 0 && strings.HasPrefix(t[0], topic.InternalPrefix) {
-		// Only the server can write to internal topics
-		return false
-	}
-	access := info.Metadata.(*Access)
 	if access.Root {
+		if strings.HasPrefix(t[0], topic.InternalPrefix) {
+			// Only the server can write to internal topics
+			return false
+		}
 		return true
 	}
 	for _, allowed := range access.Write {
