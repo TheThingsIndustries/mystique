@@ -25,8 +25,6 @@ type Session interface {
 	ID() string
 	Username() string
 
-	IsGarbage() bool
-
 	// Delivery channel of incoming publish messages
 	DeliveryChan() <-chan *packet.PublishPacket
 
@@ -85,6 +83,8 @@ type Session interface {
 // ServerSession extends Session with server-specific logic
 type ServerSession interface {
 	Session
+
+	IsGarbage() bool
 
 	RemoteAddr() string
 
@@ -200,13 +200,5 @@ func (s *session) Username() (username string) {
 	if s.authinfo != nil {
 		username = s.authinfo.Username
 	}
-	s.mu.RUnlock()
-	return
-}
-
-func (s *session) IsGarbage() (isGarbage bool) {
-	s.mu.RLock()
-	isGarbage = s.connect == nil
-	s.mu.RUnlock()
 	return
 }

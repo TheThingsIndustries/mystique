@@ -63,12 +63,11 @@ func (s *simpleStore) All() (sessions []ServerSession) {
 func (s *simpleStore) Cleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now()
 	s.sessions.Range(func(idI interface{}, sessionI interface{}) bool {
 		id := idI.(string)
 		session := sessionI.(*serverSession)
 		session.mu.RLock()
-		if !session.expires.IsZero() && session.expires.Before(now) {
+		if session.IsGarbage() {
 			s.sessions.Delete(id)
 		}
 		session.mu.RUnlock()

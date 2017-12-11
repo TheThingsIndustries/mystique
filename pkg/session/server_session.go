@@ -29,6 +29,15 @@ type serverSession struct {
 	filteredDelivery   chan *packet.PublishPacket
 }
 
+func (s *serverSession) IsGarbage() (isGarbage bool) {
+	s.mu.RLock()
+	if !s.expires.IsZero() && s.expires.Before(time.Now()) {
+		isGarbage = true
+	}
+	s.mu.RUnlock()
+	return
+}
+
 func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *packet.ConnectPacket) (*packet.ConnackPacket, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
