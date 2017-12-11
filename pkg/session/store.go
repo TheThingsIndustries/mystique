@@ -4,6 +4,7 @@ package session
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"time"
 
@@ -89,9 +90,20 @@ func (s *simpleStore) Delete(id string) {
 }
 
 func (s *simpleStore) Publish(pkt *packet.PublishPacket) {
+	workers := runtime.NumCPU()
+	queue := make(chan func(), workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			for publish := range queue {
+				publish()
+			}
+		}()
+	}
 	s.sessions.Range(func(_ interface{}, sessionI interface{}) bool {
-		session := sessionI.(*serverSession)
-		go session.Publish(pkt)
+		queue <- func() {
+			sessionI.(*serverSession).Publish(pkt)
+		}
 		return true
 	})
+	close(queue)
 }
