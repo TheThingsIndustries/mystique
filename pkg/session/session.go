@@ -148,6 +148,7 @@ type session struct {
 
 	logger log.Interface
 
+	authMu   sync.RWMutex
 	authinfo *auth.Info
 
 	// (indirectly) contains the session ID and other options
@@ -186,19 +187,29 @@ type session struct {
 
 func (s *session) Context() context.Context { return s.ctx }
 
+func (s *session) getAuthInfo() *auth.Info {
+	s.authMu.RLock()
+	authinfo := s.authinfo
+	s.authMu.RUnlock()
+	return authinfo
+}
+
+func (s *session) setAuthInfo(authinfo *auth.Info) {
+	s.authMu.Lock()
+	s.authinfo = authinfo
+	s.authMu.Unlock()
+}
+
 func (s *session) ID() (id string) {
-	s.mu.RLock()
-	if s.authinfo != nil {
-		id = s.authinfo.ClientID
+	if authinfo := s.getAuthInfo(); authinfo != nil {
+		id = authinfo.ClientID
 	}
-	s.mu.RUnlock()
 	return
 }
 
 func (s *session) Username() (username string) {
-	s.mu.RLock()
-	if s.authinfo != nil {
-		username = s.authinfo.Username
+	if authinfo := s.getAuthInfo(); authinfo != nil {
+		username = authinfo.Username
 	}
 	return
 }

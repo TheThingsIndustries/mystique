@@ -60,7 +60,7 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 	}
 
 	s.connect = pkt
-	s.authinfo = authInfo
+	s.setAuthInfo(authInfo)
 	s.expires = time.Time{}
 
 	s.logger = s.logger.WithFields(log.F{"client_id": authInfo.ClientID, "remote_addr": conn.RemoteAddr().String()})
@@ -83,19 +83,16 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 }
 
 func (s *serverSession) RemoteAddr() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.authinfo == nil {
-		return ""
+	if authinfo := s.getAuthInfo(); authinfo != nil {
+		return authinfo.RemoteAddr
 	}
-	return s.authinfo.RemoteAddr
+	return ""
 }
 
 func (s *serverSession) RemoteHost() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.authinfo != nil {
-		if host, _, err := gnet.SplitHostPort(s.authinfo.RemoteAddr); err == nil {
+	remoteAddr := s.RemoteAddr()
+	if remoteAddr != "" {
+		if host, _, err := gnet.SplitHostPort(remoteAddr); err == nil {
 			if host, err := gnet.LookupAddr(host); err == nil && len(host) > 0 {
 				return host[0]
 			}
@@ -154,7 +151,7 @@ func (s *serverSession) clear() {
 	s.pendingIn.Clear()
 	s.pendingOut.Clear()
 
-	s.authinfo = nil
+	s.setAuthInfo(nil)
 	s.connect = nil
 	s.will = nil
 	s.publishIdentifier = 0
@@ -183,9 +180,7 @@ func (s *serverSession) HandleSubscribe(pkt *packet.SubscribePacket) (*packet.Su
 	response := pkt.Response()
 	for i, topic := range pkt.Topics {
 		logger := s.logger
-		s.mu.RLock()
-		acceptedTopic, qos, err := s.authinfo.Subscribe(topic, pkt.QoSs[i])
-		s.mu.RUnlock()
+		acceptedTopic, qos, err := s.getAuthInfo().Subscribe(topic, pkt.QoSs[i])
 		if err != nil {
 			response.ReturnCodes[i] = packet.SubscribeRejected
 			s.PublishEvent("session.subscribe_rejected", EventMetadata{Topic: topic})
@@ -223,9 +218,7 @@ func (s *serverSession) SubscriptionTopics() []string {
 }
 
 func (s *serverSession) Publish(pkt *packet.PublishPacket) {
-	s.mu.RLock()
-	canRead := s.authinfo.CanRead(pkt.TopicParts...)
-	s.mu.RUnlock()
+	canRead := s.getAuthInfo().CanRead(pkt.TopicParts...)
 	if !canRead {
 		return
 	}
@@ -253,13 +246,12 @@ func (s *serverSession) DeliveryChan() <-chan *packet.PublishPacket {
 	if s.filteredDelivery == nil {
 		s.mu.Lock()
 		delivery := s.delivery
-		authinfo := s.authinfo
 		s.mu.Unlock()
 		s.filteredDelivery = make(chan *packet.PublishPacket)
 		s.wg.Add(1)
 		go func() {
 			for pkt := range delivery {
-				if authinfo.CanWrite(pkt.TopicParts...) {
+				if s.getAuthInfo().CanWrite(pkt.TopicParts...) {
 					atomic.AddUint64(&s.deliveryCount, 1)
 					s.filteredDelivery <- pkt
 				} else {
