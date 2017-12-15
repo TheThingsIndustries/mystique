@@ -313,6 +313,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		err = errors.New("First packet is not CONNECT")
 		return
 	}
+	receivedCounter.WithLabelValues("connect").Inc()
 
 	if connect.ClientID == "" {
 		connect.ClientID = fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Since(boot))
