@@ -6,13 +6,17 @@ package mystique
 
 import (
 	"context"
+	"crypto/sha1"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -21,6 +25,7 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/server"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -74,9 +79,45 @@ func Configure(binaryName string) {
 	configured = true
 }
 
+var certificateExpiry = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Namespace: "tls",
+	Name:      "certificate_expiry_seconds",
+	Help:      "Expiry date of the TLS certificate.",
+}, []string{"fingerprint"})
+
+func init() {
+	prometheus.MustRegister(certificateExpiry)
+}
+
 // RunServer the server
 func RunServer(s server.Server) {
 	wss := mqttnet.Websocket(s.Handle)
+
+	var tlsConfig *tls.Config
+	certFile, keyFile := viper.GetString("tls.cert"), viper.GetString("tls.key")
+	if certFile != "" && keyFile != "" {
+		certPEMBlock, err := ioutil.ReadFile(certFile)
+		if err != nil {
+			logger.WithError(err).Fatal("Could not read TLS certificate")
+		}
+		keyPEMBlock, err := ioutil.ReadFile(keyFile)
+		if err != nil {
+			logger.WithError(err).Fatal("Could not read TLS private key")
+		}
+		cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+		if err != nil {
+			logger.WithError(err).Fatal("Could not build X509 keypair")
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+		if p, _ := pem.Decode(certPEMBlock); p != nil && p.Type == "CERTIFICATE" {
+			if cert, err := x509.ParseCertificate(p.Bytes); err == nil {
+				sum := sha1.Sum(cert.Raw)
+				certificateExpiry.WithLabelValues(hex.EncodeToString(sum[:])).Set(float64(cert.NotAfter.Unix()))
+			}
+		}
+	}
 
 	if listen := viper.GetString("listen.status"); listen != "" {
 		http.Handle("/mqtt", wss)
@@ -112,17 +153,9 @@ func RunServer(s server.Server) {
 	}
 
 	if listen := viper.GetString("listen.tls"); listen != "" {
-		certFile, keyFile := viper.GetString("tls.cert"), viper.GetString("tls.key")
-		if certFile != "" && keyFile != "" {
-			cert, err := tls.LoadX509KeyPair(filepath.Clean(certFile), filepath.Clean(keyFile))
-			if err != nil {
-				logger.WithError(err).Fatal("Could not read TLS keypair")
-			}
-
+		if tlsConfig != nil {
 			logger.WithField("address", listen).Info("Starting MQTT+TLS server")
-			tlsLis, err := tls.Listen("tcp", listen, &tls.Config{
-				Certificates: []tls.Certificate{cert},
-			})
+			tlsLis, err := tls.Listen("tcp", listen, tlsConfig)
 			if err != nil {
 				logger.WithError(err).Fatal("Could not start MQTT+TLS server")
 			}
@@ -169,17 +202,9 @@ func RunServer(s server.Server) {
 	}
 
 	if listen := viper.GetString("listen.https"); listen != "" {
-		certFile, keyFile := viper.GetString("tls.cert"), viper.GetString("tls.key")
-		if certFile != "" && keyFile != "" {
-			cert, err := tls.LoadX509KeyPair(filepath.Clean(certFile), filepath.Clean(keyFile))
-			if err != nil {
-				logger.WithError(err).Fatal("Could not read TLS keypair")
-			}
-
+		if tlsConfig != nil {
 			logger.WithField("address", listen).Info("Starting HTTPS+wss server")
-			tlsLis, err := tls.Listen("tcp", listen, &tls.Config{
-				Certificates: []tls.Certificate{cert},
-			})
+			tlsLis, err := tls.Listen("tcp", listen, tlsConfig)
 			if err != nil {
 				logger.WithError(err).Fatal("Could not start HTTPS+wss server")
 			}
