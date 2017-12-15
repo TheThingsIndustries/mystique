@@ -113,7 +113,6 @@ func (s *server) Handle(conn net.Conn) {
 		if session.IsGarbage() {
 			logger.Info("End session")
 			s.PublishEvent("session.end", evt)
-			s.sessions.Delete(sessionID) // session.ID() is already empty at this point
 		} else {
 			logger.Info("Detach session")
 			s.PublishEvent("session.detach", evt)
