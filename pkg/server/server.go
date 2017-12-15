@@ -328,6 +328,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 			if code, ok := err.(packet.ConnectReturnCode); ok {
 				response := connect.Response()
 				response.ReturnCode = code
+				sentCounter.WithLabelValues("connack").Inc()
 				conn.Send(response)
 			}
 		}
@@ -388,6 +389,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 	s.PublishEvent("auth.accepted", evt)
 
 	// Send the connack
+	sentCounter.WithLabelValues("connack").Inc()
 	conn.Send(response)
 
 	// (Re)send pending messages
@@ -395,6 +397,7 @@ func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, er
 		if pkt, ok := pkt.(*packet.PublishPacket); ok {
 			pkt.Duplicate = true
 		}
+		sentCounter.WithLabelValues("publish").Inc()
 		conn.Send(pkt)
 	}
 
