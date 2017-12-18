@@ -53,7 +53,9 @@ type simpleStore struct {
 func (s *simpleStore) All() (sessions []ServerSession) {
 	s.sessions.Range(func(_ interface{}, value interface{}) bool {
 		if session, ok := value.(*serverSession); ok {
-			sessions = append(sessions, session)
+			if !session.IsGarbage() {
+				sessions = append(sessions, session)
+			}
 		}
 		return true
 	})
@@ -98,9 +100,13 @@ func (s *simpleStore) Publish(pkt *packet.PublishPacket) {
 			}
 		}()
 	}
-	s.sessions.Range(func(_ interface{}, sessionI interface{}) bool {
-		queue <- func() {
-			sessionI.(*serverSession).Publish(pkt)
+	s.sessions.Range(func(_ interface{}, value interface{}) bool {
+		if session, ok := value.(*serverSession); ok {
+			if !session.IsGarbage() {
+				queue <- func() {
+					session.Publish(pkt)
+				}
+			}
 		}
 		return true
 	})
