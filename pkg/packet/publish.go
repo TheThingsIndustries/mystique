@@ -19,14 +19,14 @@ const (
 
 // PublishPacket is the PUBLISH packet
 type PublishPacket struct {
-	Received         time.Time
-	Retain           bool
-	QoS              byte
-	Duplicate        bool
-	PacketIdentifier uint16
-	TopicName        string
-	TopicParts       []string
-	Message          []byte
+	Received         time.Time `json:"received"`
+	Retain           bool      `json:"retained"`
+	QoS              byte      `json:"qos"`
+	Duplicate        bool      `json:"-"`
+	PacketIdentifier uint16    `json:"-"`
+	TopicName        string    `json:"topic"`
+	TopicParts       []string  `json:"-"`
+	Message          []byte    `json:"message"`
 }
 
 // PacketType returns the MQTT packet type of this packet

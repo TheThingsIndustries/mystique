@@ -3,7 +3,6 @@
 package session
 
 import (
-	gnet "net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -85,18 +84,6 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 func (s *serverSession) RemoteAddr() string {
 	if authinfo := s.getAuthInfo(); authinfo != nil {
 		return authinfo.RemoteAddr
-	}
-	return ""
-}
-
-func (s *serverSession) RemoteHost() string {
-	remoteAddr := s.RemoteAddr()
-	if remoteAddr != "" {
-		if host, _, err := gnet.SplitHostPort(remoteAddr); err == nil {
-			if host, err := gnet.LookupAddr(host); err == nil && len(host) > 0 {
-				return host[0]
-			}
-		}
 	}
 	return ""
 }
