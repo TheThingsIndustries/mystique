@@ -144,6 +144,7 @@ func (s *server) Handle(conn mqttnet.Conn) {
 	// deliverLoop
 	go func() {
 		for msg := range session.DeliveryChan() {
+			s.retainedMessages.Retain(msg)
 			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Debug("Publish message")
 			s.Publish(msg)
 		}
@@ -182,7 +183,6 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				}
 				logger.Debug("Read PUBLISH")
 				receivedCounter.WithLabelValues("publish").Inc()
-				s.retainedMessages.Retain(pkt)
 				response, err = session.HandlePublish(pkt)
 			case *packet.PubackPacket:
 				logger.Debug("Read PUBACK")
