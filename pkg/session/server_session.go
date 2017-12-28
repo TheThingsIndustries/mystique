@@ -218,6 +218,9 @@ func (s *serverSession) SubscriptionTopics() []string {
 }
 
 func (s *serverSession) Publish(pkt *packet.PublishPacket) {
+	if s.subscriptions.Count() == 0 {
+		return
+	}
 	canRead := s.getAuthInfo().CanRead(pkt.TopicParts...)
 	if !canRead {
 		return

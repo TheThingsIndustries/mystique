@@ -110,6 +110,14 @@ func (s *List) Matches(t ...string) (matches []string) {
 	return
 }
 
+// Count the subscriptions
+func (s *List) Count() (count int) {
+	s.mu.RLock()
+	count = len(s.subscriptions)
+	s.mu.RUnlock()
+	return
+}
+
 // SubscriptionTopics returns all topics in the subscription list
 func (s *List) SubscriptionTopics() (topics []string) {
 	s.mu.RLock()
