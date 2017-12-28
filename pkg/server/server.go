@@ -53,6 +53,7 @@ func WithFirehose(f chan<- *packet.PublishPacket) Option {
 type Server interface {
 	Handle(conn mqttnet.Conn)
 	Sessions() session.Store
+	Retained() retained.Store
 	Publish(pkt *packet.PublishPacket)
 }
 
@@ -303,6 +304,10 @@ func (s *server) Handle(conn mqttnet.Conn) {
 
 func (s *server) Sessions() session.Store {
 	return s.sessions
+}
+
+func (s *server) Retained() retained.Store {
+	return s.retainedMessages
 }
 
 var boot = time.Now()

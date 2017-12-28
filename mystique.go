@@ -123,6 +123,7 @@ func RunServer(s server.Server) {
 		http.Handle("/mqtt", wss)
 		http.Handle("/metrics", promhttp.Handler())
 		http.Handle("/debug/sessions", inspect.Sessions(s))
+		http.Handle("/debug/retained", inspect.Retained(s))
 		logger.WithField("address", listen).Info("Starting status+debug+metrics server")
 		go func() {
 			err := http.ListenAndServe(listen, nil)

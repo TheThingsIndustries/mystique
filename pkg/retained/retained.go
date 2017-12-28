@@ -18,6 +18,9 @@ type Store interface {
 
 	// Get all currently retained messages that match the filters
 	Get(filter ...string) []*packet.PublishPacket
+
+	// All retained messages
+	All() []*packet.PublishPacket
 }
 
 // SimpleStore returns a simple store for retained messages
@@ -65,4 +68,14 @@ nextMessage:
 		}
 	}
 	return
+}
+
+func (r *retainedMessages) All() []*packet.PublishPacket {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	packets := make([]*packet.PublishPacket, 0, len(r.messages))
+	for _, packet := range r.messages {
+		packets = append(packets, packet)
+	}
+	return packets
 }
