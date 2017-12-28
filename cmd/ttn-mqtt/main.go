@@ -59,6 +59,8 @@ func main() {
 		"ttn-account-v2=https://account.thethingsnetwork.org",
 	}, "TTN Account Servers")
 
+	pflag.Int("limit.ip", 0, "Connection limit per IP address")
+
 	mystique.Configure("ttn-mqtt")
 
 	logger := log.FromContext(mystique.Context())
@@ -122,7 +124,13 @@ func main() {
 
 	auth.SetPenalty(viper.GetDuration("auth.penalty"))
 
-	s := server.New(mystique.Context(), server.WithAuth(auth))
+	serverOptions := []server.Option{server.WithAuth(auth)}
+
+	if ipLimit := viper.GetInt("limit.ip"); ipLimit > 0 {
+		serverOptions = append(serverOptions, server.WithIPLimits(ipLimit))
+	}
+
+	s := server.New(mystique.Context(), serverOptions...)
 
 	mystique.RunServer(s)
 }

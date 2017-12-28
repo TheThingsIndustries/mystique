@@ -8,12 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
-	"github.com/TheThingsIndustries/mystique/pkg/net"
+	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/retained"
 	"github.com/TheThingsIndustries/mystique/pkg/session"
@@ -38,6 +39,11 @@ func WithRetainedMessagesStore(store retained.Store) Option {
 	return func(s *server) { s.retainedMessages = store }
 }
 
+// WithIPLimits returns an option that sets limits on connections per IP
+func WithIPLimits(max int) Option {
+	return func(s *server) { s.ipLimits = newLimits(max) }
+}
+
 // WithFirehose sets the firehose of the server that receives all publishes
 func WithFirehose(f chan<- *packet.PublishPacket) Option {
 	return func(s *server) { s.firehose = f }
@@ -45,7 +51,7 @@ func WithFirehose(f chan<- *packet.PublishPacket) Option {
 
 // Server interface
 type Server interface {
-	Handle(conn net.Conn)
+	Handle(conn mqttnet.Conn)
 	Sessions() session.Store
 	Publish(pkt *packet.PublishPacket)
 }
@@ -69,6 +75,7 @@ type server struct {
 	ctx              context.Context
 	logger           log.Interface
 	auth             auth.Interface // may be nil
+	ipLimits         *limits
 	firehose         chan<- *packet.PublishPacket
 	sessions         session.Store
 	retainedMessages retained.Store
@@ -82,7 +89,7 @@ func (s *server) Publish(pkt *packet.PublishPacket) {
 }
 
 // Handle a connection
-func (s *server) Handle(conn net.Conn) {
+func (s *server) Handle(conn mqttnet.Conn) {
 	remoteAddr := conn.RemoteAddr().String()
 	evt := EventMetadata{RemoteAddr: remoteAddr}
 	logger := s.logger.WithField("remote_addr", remoteAddr)
@@ -95,6 +102,12 @@ func (s *server) Handle(conn net.Conn) {
 		s.PublishEvent("connection.close", evt)
 		conn.Close()
 	}()
+
+	ip, _, _ := net.SplitHostPort(remoteAddr)
+	if err := s.ipLimits.connect(ip); err != nil {
+		return
+	}
+	defer s.ipLimits.disconnect(ip)
 
 	session, err := s.HandleConnect(conn)
 	if err != nil {
@@ -298,7 +311,7 @@ var boot = time.Now()
 // "/" -> "." (because we use clientID in topic names for events)
 var replaceClientID = strings.NewReplacer("/", ".")
 
-func (s *server) HandleConnect(conn net.Conn) (session session.ServerSession, err error) {
+func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession, err error) {
 	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
 	evt := EventMetadata{RemoteAddr: conn.RemoteAddr().String()}
 
