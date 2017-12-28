@@ -37,6 +37,9 @@ func Sessions(s server.Server) http.Handler {
 		var data sessionsData
 		for _, sess := range s.Sessions().All() {
 			stats := sess.Stats()
+			if sess.IsGarbage() {
+				continue
+			}
 			data.Sessions = append(data.Sessions, session{
 				ID:            sess.ID(),
 				Username:      sess.Username(),
