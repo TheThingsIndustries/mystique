@@ -34,6 +34,11 @@ func WithSessionStore(sess session.Store) Option {
 	return func(s *server) { s.sessions = sess }
 }
 
+// WithoutRetained returns an option that ignores retained messages
+func WithoutRetained() Option {
+	return func(s *server) { s.retain = false }
+}
+
 // WithRetainedMessagesStore returns an option that sets the store for retained messages
 func WithRetainedMessagesStore(store retained.Store) Option {
 	return func(s *server) { s.retainedMessages = store }
@@ -59,14 +64,14 @@ type Server interface {
 
 // New returns a new MQTT server
 func New(ctx context.Context, option ...Option) Server {
-	s := &server{ctx: ctx, logger: log.FromContext(ctx)}
+	s := &server{ctx: ctx, logger: log.FromContext(ctx), retain: true}
 	for _, opt := range option {
 		opt(s)
 	}
 	if s.sessions == nil {
 		s.sessions = session.SimpleStore(s.ctx)
 	}
-	if s.retainedMessages == nil {
+	if s.retain && s.retainedMessages == nil {
 		s.retainedMessages = retained.SimpleStore(s.ctx)
 	}
 	return s
@@ -79,6 +84,7 @@ type server struct {
 	ipLimits         *limits
 	firehose         chan<- *packet.PublishPacket
 	sessions         session.Store
+	retain           bool
 	retainedMessages retained.Store
 }
 
@@ -144,7 +150,9 @@ func (s *server) Handle(conn mqttnet.Conn) {
 	// deliverLoop
 	go func() {
 		for msg := range session.DeliveryChan() {
-			s.retainedMessages.Retain(msg)
+			if s.retain {
+				s.retainedMessages.Retain(msg)
+			}
 			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Debug("Publish message")
 			go s.Publish(msg)
 		}
@@ -204,11 +212,13 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				logger.Debug("Read SUBSCRIBE")
 				receivedCounter.WithLabelValues("subscribe").Inc()
 				response, err = session.HandleSubscribe(pkt)
-				go func() {
-					for _, pkt := range s.retainedMessages.Get(pkt.Topics...) {
-						session.Publish(pkt)
-					}
-				}()
+				if s.retain {
+					go func() {
+						for _, pkt := range s.retainedMessages.Get(pkt.Topics...) {
+							session.Publish(pkt)
+						}
+					}()
+				}
 			case *packet.UnsubscribePacket:
 				logger.Debug("Read UNSUBSCRIBE")
 				receivedCounter.WithLabelValues("unsubscribe").Inc()
@@ -423,11 +433,13 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 	}
 
 	// Send retained messages
-	go func() {
-		for _, pkt := range s.retainedMessages.Get(session.SubscriptionTopics()...) {
-			session.Publish(pkt)
-		}
-	}()
+	if s.retain {
+		go func() {
+			for _, pkt := range s.retainedMessages.Get(session.SubscriptionTopics()...) {
+				session.Publish(pkt)
+			}
+		}()
+	}
 
 	return session, nil
 }

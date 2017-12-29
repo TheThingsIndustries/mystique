@@ -124,7 +124,7 @@ func main() {
 
 	auth.SetPenalty(viper.GetDuration("auth.penalty"))
 
-	serverOptions := []server.Option{server.WithAuth(auth)}
+	serverOptions := []server.Option{server.WithAuth(auth), server.WithoutRetained()}
 
 	if ipLimit := viper.GetInt("limit.ip"); ipLimit > 0 {
 		serverOptions = append(serverOptions, server.WithIPLimits(ipLimit))
