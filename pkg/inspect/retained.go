@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
-	"github.com/TheThingsIndustries/mystique/pkg/server"
+	"github.com/TheThingsIndustries/mystique/pkg/retained"
 )
 
 type retainedData struct {
@@ -24,10 +24,10 @@ func (s messagesByTopic) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s messagesByTopic) Less(i, j int) bool { return s[i].TopicName < s[j].TopicName }
 
 // Retained inspector
-func Retained(s server.Server) http.Handler {
+func Retained(s retained.Store) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var data retainedData
-		for _, msg := range s.Retained().All() {
+		for _, msg := range s.All() {
 			data.Messages = append(data.Messages, msg)
 		}
 		data.sort()

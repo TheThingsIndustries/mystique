@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/TheThingsIndustries/mystique/pkg/server"
+	"github.com/TheThingsIndustries/mystique/pkg/session"
 )
 
 type sessionsData struct {
@@ -16,13 +16,13 @@ type sessionsData struct {
 
 func (d sessionsData) sort() { sort.Sort(d.Sessions) }
 
-type sessionsByID []session
+type sessionsByID []sessionData
 
 func (s sessionsByID) Len() int           { return len(s) }
 func (s sessionsByID) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s sessionsByID) Less(i, j int) bool { return s[i].ID < s[j].ID }
 
-type session struct {
+type sessionData struct {
 	ID            string          `json:"id"`
 	Username      string          `json:"username"`
 	RemoteAddr    string          `json:"remote_addr"`
@@ -32,15 +32,15 @@ type session struct {
 }
 
 // Sessions inspector
-func Sessions(s server.Server) http.Handler {
+func Sessions(s session.Store) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var data sessionsData
-		for _, sess := range s.Sessions().All() {
+		for _, sess := range s.All() {
 			stats := sess.Stats()
 			if sess.IsGarbage() {
 				continue
 			}
-			data.Sessions = append(data.Sessions, session{
+			data.Sessions = append(data.Sessions, sessionData{
 				ID:            sess.ID(),
 				Username:      sess.Username(),
 				RemoteAddr:    sess.RemoteAddr(),
