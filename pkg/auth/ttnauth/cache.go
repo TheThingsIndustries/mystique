@@ -12,7 +12,7 @@ import (
 
 type cache struct {
 	expire time.Duration
-	mu     sync.RWMutex
+	mu     sync.Mutex
 	cache  map[string]cachedResult
 	salt   []byte
 }
