@@ -56,14 +56,12 @@ func (r *retainedMessages) Retain(pkt *packet.PublishPacket) {
 }
 
 func (r *retainedMessages) Get(filter ...string) (packets []*packet.PublishPacket) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-nextMessage:
-	for t, pkt := range r.messages {
+nextRetained:
+	for _, pkt := range r.All() {
 		for _, filter := range filter {
-			if topic.Match(t, filter) {
+			if topic.Match(pkt.TopicName, filter) {
 				packets = append(packets, pkt)
-				continue nextMessage
+				continue nextRetained
 			}
 		}
 	}
