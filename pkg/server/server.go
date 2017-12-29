@@ -146,7 +146,7 @@ func (s *server) Handle(conn mqttnet.Conn) {
 		for msg := range session.DeliveryChan() {
 			s.retainedMessages.Retain(msg)
 			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Debug("Publish message")
-			s.Publish(msg)
+			go s.Publish(msg)
 		}
 	}()
 
@@ -204,9 +204,11 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				logger.Debug("Read SUBSCRIBE")
 				receivedCounter.WithLabelValues("subscribe").Inc()
 				response, err = session.HandleSubscribe(pkt)
-				for _, pkt := range s.retainedMessages.Get(pkt.Topics...) {
-					session.Publish(pkt)
-				}
+				go func() {
+					for _, pkt := range s.retainedMessages.Get(pkt.Topics...) {
+						session.Publish(pkt)
+					}
+				}()
 			case *packet.UnsubscribePacket:
 				logger.Debug("Read UNSUBSCRIBE")
 				receivedCounter.WithLabelValues("unsubscribe").Inc()
@@ -421,9 +423,11 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 	}
 
 	// Send retained messages
-	for _, pkt := range s.retainedMessages.Get(session.SubscriptionTopics()...) {
-		session.Publish(pkt)
-	}
+	go func() {
+		for _, pkt := range s.retainedMessages.Get(session.SubscriptionTopics()...) {
+			session.Publish(pkt)
+		}
+	}()
 
 	return session, nil
 }
