@@ -43,12 +43,15 @@ func (r *retainedMessages) Retain(pkt *packet.PublishPacket) {
 	}
 	pkt.Retain = false // Unset retain flag on original message
 	r.mu.Lock()
+	_, exists := r.messages[pkt.TopicName]
 	if len(pkt.Message) > 0 {
 		retained := *pkt
 		retained.Retain = true // Set retain flag on message copy
 		r.messages[pkt.TopicName] = &retained
-		retainedGauge.Inc()
-	} else if _, ok := r.messages[pkt.TopicName]; ok {
+		if !exists {
+			retainedGauge.Inc()
+		}
+	} else if exists {
 		delete(r.messages, pkt.TopicName)
 		retainedGauge.Dec()
 	}
