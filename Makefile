@@ -7,6 +7,8 @@ ifndef GOARCH
 	GOARCH := $(shell go env GOARCH)
 endif
 
+RELEASE_DIR ?= release
+
 GO_PATH := $(shell echo $(GOPATH) | awk -F':' '{ print $$1 }')
 
 SHELL := bash
@@ -42,12 +44,12 @@ dev-cert:
 clean:
 	rm -rf release
 
-release/%-$(GOOS)-$(GOARCH): cmd/%/main.go
+$(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -gcflags="-trimpath=$(GO_PATH)" -asmflags="-trimpath=$(GO_PATH)" -a -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
 
 .PHONY: release
 
-release: release/mystique-server-$(GOOS)-$(GOARCH) release/ttn-mqtt-$(GOOS)-$(GOARCH)
+release: $(RELEASE_DIR)/mystique-server-$(GOOS)-$(GOARCH) $(RELEASE_DIR)/ttn-mqtt-$(GOOS)-$(GOARCH)
 
 releases:
 	GOOS=linux GOARCH=amd64 make -j 2 release
