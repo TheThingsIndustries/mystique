@@ -56,3 +56,10 @@ releases:
 	GOOS=darwin GOARCH=amd64 make -j 2 release
 	GOOS=windows GOARCH=amd64 make -j 2 release
 	GOOS=windows GOARCH=386 make -j 2 release
+
+.PHONY: docker
+
+docker:
+	GOOS=linux GOARCH=amd64 make -j 2 release
+	docker build --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server .
+	docker build --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt .
