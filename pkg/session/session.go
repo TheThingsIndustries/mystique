@@ -9,7 +9,6 @@ import (
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
-	"github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/pending"
 	"github.com/TheThingsIndustries/mystique/pkg/subscription"
@@ -80,56 +79,6 @@ type Session interface {
 	Close()
 }
 
-// ServerSession extends Session with server-specific logic
-type ServerSession interface {
-	Session
-
-	IsGarbage() bool
-
-	RemoteAddr() string
-
-	Stats() Stats
-
-	// Handle a Connect packet
-	// sets the connection and returns either a *ConnackPacket or a ConnectReturnCode as error
-	// If the returned err is nil, the ReturnCode in the *ConnackPacket will be set to 0
-	// If the returned err is a non-nil ConnectReturnCode, the ReturnCode in the *ConnackPacket will be set to that value
-	HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *packet.ConnectPacket) (*packet.ConnackPacket, error)
-
-	// Handle a Disconnect packet
-	// unsets the will
-	HandleDisconnect()
-
-	// Handle a Subscribe packet
-	// adds subscriptions, returns *SubackPacket
-	HandleSubscribe(pkt *packet.SubscribePacket) (*packet.SubackPacket, error)
-
-	// Handle an Unsubscribe packet
-	// removes subscriptions, returns *UnsubackPacket
-	HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packet.UnsubackPacket, error)
-}
-
-// ClientSession extends Session with client-specific logic
-type ClientSession interface {
-	Connect() error
-
-	// Handle a Connack packet
-	// makes Connect return
-	HandleConnack(pkt *packet.ConnackPacket) error
-
-	// Subscribe to topics with given QoSs
-	Subscribe(map[string]byte) error
-
-	// Handle a Suback packet
-	HandleSuback(pkt *packet.SubackPacket) error
-
-	// Unsubscribe from topics
-	Unsubscribe(...string) error
-
-	// Handle an Unsuback packet
-	HandleUnsuback(pkt *packet.UnsubackPacket) error
-}
-
 func newSession(ctx context.Context) session {
 	return session{
 		ctx:        ctx,
@@ -160,12 +109,6 @@ type session struct {
 
 	// publish delivery channel - blocking
 	delivery chan *packet.PublishPacket
-
-	// will of the session
-	// can be set on (re)connect
-	// is delivered when conn breaks
-	// is cleared on HandleDisconnect
-	will *packet.PublishPacket
 
 	// pendingOut contains
 	// - Publish packets that have not been sent

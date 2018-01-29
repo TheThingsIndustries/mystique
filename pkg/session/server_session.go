@@ -14,6 +14,35 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
+// ServerSession extends Session with server-specific logic
+type ServerSession interface {
+	Session
+
+	IsGarbage() bool
+
+	RemoteAddr() string
+
+	Stats() Stats
+
+	// Handle a Connect packet
+	// sets the connection and returns either a *ConnackPacket or a ConnectReturnCode as error
+	// If the returned err is nil, the ReturnCode in the *ConnackPacket will be set to 0
+	// If the returned err is a non-nil ConnectReturnCode, the ReturnCode in the *ConnackPacket will be set to that value
+	HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *packet.ConnectPacket) (*packet.ConnackPacket, error)
+
+	// Handle a Disconnect packet
+	// unsets the will
+	HandleDisconnect()
+
+	// Handle a Subscribe packet
+	// adds subscriptions, returns *SubackPacket
+	HandleSubscribe(pkt *packet.SubscribePacket) (*packet.SubackPacket, error)
+
+	// Handle an Unsubscribe packet
+	// removes subscriptions, returns *UnsubackPacket
+	HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packet.UnsubackPacket, error)
+}
+
 type serverSession struct {
 	// BEGIN align on 32 bit machines
 	publishCount  uint64
@@ -21,6 +50,12 @@ type serverSession struct {
 	// END align on 32 bit machines
 
 	session
+
+	// will of the session
+	// can be set on (re)connect
+	// is delivered when conn breaks
+	// is cleared on HandleDisconnect
+	will *packet.PublishPacket
 
 	expires time.Time
 
