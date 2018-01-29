@@ -10,21 +10,22 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/apex"
 	"github.com/TheThingsIndustries/mystique/pkg/inspect"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/server"
+	"github.com/fsnotify/fsnotify"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
@@ -89,6 +90,79 @@ func init() {
 	prometheus.MustRegister(certificateExpiry)
 }
 
+func TLSConfig(certFile, keyFile string) (tlsConfig *tls.Config) {
+	var (
+		cert   *tls.Certificate
+		certMu sync.RWMutex
+	)
+
+	readCert := func() error {
+		newCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return fmt.Errorf("Could not load X509 keypair: %s", err)
+		}
+		newCert.Leaf, err = x509.ParseCertificate(newCert.Certificate[0])
+		if err != nil {
+			logger.WithError(err).Warn("Could not parse leaf certificate")
+		}
+
+		sum := sha1.Sum(newCert.Leaf.Raw)
+
+		certMu.Lock()
+		cert = &newCert
+		certificateExpiry.Reset()
+		certificateExpiry.WithLabelValues(hex.EncodeToString(sum[:])).Set(float64(newCert.Leaf.NotAfter.Unix()))
+		certMu.Unlock()
+
+		return nil
+	}
+
+	if err := readCert(); err != nil {
+		logger.WithError(err).Fatal("Could not set up TLS")
+	}
+
+	if watcher, err := fsnotify.NewWatcher(); err == nil {
+		if watcher.Add(certFile) == nil && watcher.Add(keyFile) == nil {
+			update := make(chan bool, 1)
+			go func() {
+				for {
+					select {
+					case event := <-watcher.Events:
+						if event.Op&fsnotify.Write == fsnotify.Write {
+							select {
+							case update <- true:
+								logger.Info("Detected certificate change. Scheduling update...")
+								time.AfterFunc(5*time.Second, func() {
+									logger.Info("Updating TLS certificate...")
+									if err := readCert(); err != nil {
+										logger.WithError(err).Error("Could not update TLS certificate")
+									} else {
+										logger.Info("Updated TLS certificate")
+									}
+									<-update
+								})
+							default:
+								// Debounce
+							}
+						}
+					case err := <-watcher.Errors:
+						logger.WithError(err).Warn("Error watching file")
+					}
+				}
+			}()
+		}
+	}
+
+	return &tls.Config{
+		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			certMu.RLock()
+			currentCert := cert
+			certMu.RUnlock()
+			return currentCert, nil
+		},
+	}
+}
+
 // RunServer the server
 func RunServer(s server.Server) {
 	wss := mqttnet.Websocket(s.Handle)
@@ -96,27 +170,7 @@ func RunServer(s server.Server) {
 	var tlsConfig *tls.Config
 	certFile, keyFile := viper.GetString("tls.cert"), viper.GetString("tls.key")
 	if certFile != "" && keyFile != "" {
-		certPEMBlock, err := ioutil.ReadFile(certFile)
-		if err != nil {
-			logger.WithError(err).Fatal("Could not read TLS certificate")
-		}
-		keyPEMBlock, err := ioutil.ReadFile(keyFile)
-		if err != nil {
-			logger.WithError(err).Fatal("Could not read TLS private key")
-		}
-		cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
-		if err != nil {
-			logger.WithError(err).Fatal("Could not build X509 keypair")
-		}
-		tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		}
-		if p, _ := pem.Decode(certPEMBlock); p != nil && p.Type == "CERTIFICATE" {
-			if cert, err := x509.ParseCertificate(p.Bytes); err == nil {
-				sum := sha1.Sum(cert.Raw)
-				certificateExpiry.WithLabelValues(hex.EncodeToString(sum[:])).Set(float64(cert.NotAfter.Unix()))
-			}
-		}
+		tlsConfig = TLSConfig(certFile, keyFile)
 	}
 
 	if listen := viper.GetString("listen.status"); listen != "" {
