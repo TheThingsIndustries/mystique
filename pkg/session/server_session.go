@@ -57,19 +57,22 @@ type serverSession struct {
 	// is cleared on HandleDisconnect
 	will *packet.PublishPacket
 
-	expires time.Time
+	expires atomic.Value
 
 	filteredDeliveryMu sync.Mutex
 	filteredDelivery   chan *packet.PublishPacket
 }
 
-func (s *serverSession) IsGarbage() (isGarbage bool) {
-	s.mu.RLock()
-	if !s.expires.IsZero() && s.expires.Before(time.Now()) {
-		isGarbage = true
+func (s *serverSession) IsGarbage() bool {
+	expiresI := s.expires.Load()
+	if expiresI == nil {
+		return false
 	}
-	s.mu.RUnlock()
-	return
+	expires := expiresI.(time.Time)
+	if !expires.IsZero() && expires.Before(time.Now()) {
+		return true
+	}
+	return false
 }
 
 func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *packet.ConnectPacket) (*packet.ConnackPacket, error) {
@@ -95,7 +98,7 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 
 	s.connect = pkt
 	s.setAuthInfo(authInfo)
-	s.expires = time.Time{}
+	s.expires.Store(time.Time{})
 
 	s.logger = s.logger.WithFields(log.F{"client_id": authInfo.ClientID, "remote_addr": conn.RemoteAddr().String()})
 	if authInfo.Username != "" {
@@ -155,7 +158,7 @@ func (s *serverSession) close() {
 
 	s.wg.Wait() // Wait for the goroutine to finish
 
-	s.expires = time.Now().Add(time.Hour)
+	s.expires.Store(time.Now().Add(time.Hour))
 
 	if s.connect.CleanStart {
 		s.clear()
@@ -182,7 +185,7 @@ func (s *serverSession) clear() {
 	s.publishCount = 0
 	s.deliveryCount = 0
 
-	s.expires = time.Now()
+	s.expires.Store(time.Now())
 }
 
 func (s *serverSession) deliverWill() {
