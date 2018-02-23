@@ -16,6 +16,7 @@ type Conn interface {
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+	NetConn() net.Conn
 	Transport() string
 	Send(pkt packet.ControlPacket) error
 	Receive() (packet.ControlPacket, error)
@@ -26,6 +27,10 @@ type conn struct {
 	transport string
 	timeout   time.Duration
 	net.Conn
+}
+
+func (c *conn) NetConn() net.Conn {
+	return c.Conn
 }
 
 func (c *conn) Transport() string {
