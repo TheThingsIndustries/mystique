@@ -30,6 +30,7 @@ type Info struct {
 	Interface
 	RemoteAddr string
 	Transport  string
+	ServerName string
 	ClientID   string
 	Username   string
 	Password   []byte
