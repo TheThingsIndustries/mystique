@@ -4,26 +4,6 @@ package server
 
 import "github.com/prometheus/client_golang/prometheus"
 
-var receivedCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Namespace: "mystique",
-		Subsystem: "server",
-		Name:      "messages_received_total",
-		Help:      "Total number of messages received.",
-	},
-	[]string{"message_type"},
-)
-
-var sentCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Namespace: "mystique",
-		Subsystem: "server",
-		Name:      "messages_sent_total",
-		Help:      "Total number of messages sent.",
-	},
-	[]string{"message_type"},
-)
-
 var connectCounter = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "mystique",
@@ -52,8 +32,6 @@ var conns = prometheus.NewGauge(prometheus.GaugeOpts{
 })
 
 func init() {
-	prometheus.MustRegister(receivedCounter)
-	prometheus.MustRegister(sentCounter)
 	prometheus.MustRegister(connectCounter)
 	prometheus.MustRegister(publishLatency)
 }

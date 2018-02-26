@@ -44,6 +44,7 @@ func (c *conn) Write(b []byte) (n int, err error) {
 }
 
 func (c *conn) Send(pkt packet.ControlPacket) error {
+	registerSend(pkt)
 	return packet.Write(c, pkt)
 }
 
@@ -58,6 +59,7 @@ func (c *conn) Receive() (packet.ControlPacket, error) {
 	if err != nil {
 		return nil, err
 	}
+	registerReceive(pkt)
 	c.updateTimeout()
 	return pkt, nil
 }

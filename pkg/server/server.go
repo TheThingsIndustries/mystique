@@ -190,27 +190,21 @@ func (s *server) Handle(conn mqttnet.Conn) {
 					pkt.TopicParts = topic.Split(pkt.TopicName)
 				}
 				logger.Debug("Read PUBLISH")
-				receivedCounter.WithLabelValues("publish").Inc()
 				response, err = session.HandlePublish(pkt)
 			case *packet.PubackPacket:
 				logger.Debug("Read PUBACK")
-				receivedCounter.WithLabelValues("puback").Inc()
 				err = session.HandlePuback(pkt)
 			case *packet.PubrecPacket:
 				logger.Debug("Read PUBREC")
-				receivedCounter.WithLabelValues("pubrec").Inc()
 				response, err = session.HandlePubrec(pkt)
 			case *packet.PubrelPacket:
 				logger.Debug("Read PUBREL")
-				receivedCounter.WithLabelValues("pubrel").Inc()
 				response, err = session.HandlePubrel(pkt)
 			case *packet.PubcompPacket:
 				logger.Debug("Read PUBCOMP")
-				receivedCounter.WithLabelValues("pubcomp").Inc()
 				err = session.HandlePubcomp(pkt)
 			case *packet.SubscribePacket:
 				logger.Debug("Read SUBSCRIBE")
-				receivedCounter.WithLabelValues("subscribe").Inc()
 				response, err = session.HandleSubscribe(pkt)
 				if s.retain {
 					go func() {
@@ -221,19 +215,15 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				}
 			case *packet.UnsubscribePacket:
 				logger.Debug("Read UNSUBSCRIBE")
-				receivedCounter.WithLabelValues("unsubscribe").Inc()
 				response, err = session.HandleUnsubscribe(pkt)
 			case *packet.PingreqPacket:
 				logger.Debug("Read PINGREQ")
-				receivedCounter.WithLabelValues("pingreq").Inc()
 				response = pkt.Response()
 			case *packet.DisconnectPacket:
 				logger.Debug("Read DISCONNECT")
-				receivedCounter.WithLabelValues("disconnect").Inc()
 				session.HandleDisconnect()
 			default:
 				logger.WithField("packet_type", fmt.Sprintf("%T", pkt)).Debug("Read unknown packet")
-				receivedCounter.WithLabelValues("unknown").Inc()
 				conn.Close()
 			}
 			if err != nil {
@@ -244,31 +234,22 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				switch response.(type) {
 				case *packet.ConnackPacket:
 					logger.Debug("Write CONNACK")
-					sentCounter.WithLabelValues("connack").Inc()
 				case *packet.PubackPacket:
 					logger.Debug("Write PUBACK")
-					sentCounter.WithLabelValues("puback").Inc()
 				case *packet.PubrecPacket:
 					logger.Debug("Write PUBREC")
-					sentCounter.WithLabelValues("pubrec").Inc()
 				case *packet.PubrelPacket:
 					logger.Debug("Write PUBREL")
-					sentCounter.WithLabelValues("pubrel").Inc()
 				case *packet.PubcompPacket:
 					logger.Debug("Write PUBCOMP")
-					sentCounter.WithLabelValues("pubcomp").Inc()
 				case *packet.SubackPacket:
 					logger.Debug("Write SUBACK")
-					sentCounter.WithLabelValues("suback").Inc()
 				case *packet.UnsubackPacket:
 					logger.Debug("Write UNSUBACK")
-					sentCounter.WithLabelValues("unsuback").Inc()
 				case *packet.PingrespPacket:
 					logger.Debug("Write PINGRESP")
-					sentCounter.WithLabelValues("pingresp").Inc()
 				case *packet.DisconnectPacket:
 					logger.Debug("Write DISCONNECT")
-					sentCounter.WithLabelValues("disconnect").Inc()
 				default:
 					panic("trying to send unknown packet type")
 				}
@@ -305,7 +286,6 @@ func (s *server) Handle(conn mqttnet.Conn) {
 			}
 			pkt.TopicParts = nil
 			logger.Debug("Write PUBLISH")
-			sentCounter.WithLabelValues("publish").Inc()
 			err = conn.Send(pkt)
 		}
 		if err != nil {
@@ -343,7 +323,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 		err = errors.New("First packet is not CONNECT")
 		return
 	}
-	receivedCounter.WithLabelValues("connect").Inc()
 
 	if connect.ClientID == "" {
 		connect.ClientID = fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Since(boot))
@@ -359,7 +338,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 			if code, ok := err.(packet.ConnectReturnCode); ok {
 				response := connect.Response()
 				response.ReturnCode = code
-				sentCounter.WithLabelValues("connack").Inc()
 				conn.Send(response)
 			}
 		}
@@ -420,7 +398,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 	s.PublishEvent("auth.accepted", evt)
 
 	// Send the connack
-	sentCounter.WithLabelValues("connack").Inc()
 	conn.Send(response)
 
 	// (Re)send pending messages
@@ -428,7 +405,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 		if pkt, ok := pkt.(*packet.PublishPacket); ok {
 			pkt.Duplicate = true
 		}
-		sentCounter.WithLabelValues("publish").Inc()
 		conn.Send(pkt)
 	}
 
