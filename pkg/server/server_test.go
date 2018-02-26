@@ -38,6 +38,7 @@ func (m *mockConn) RemoteAddr() net.Addr {
 func (m *mockConn) Transport() string {
 	return "mock"
 }
+func (m *mockConn) NetConn() net.Conn { return nil }
 func (m *mockConn) Send(pkt packet.ControlPacket) error {
 	if m.closed {
 		return errors.New("conn closed")
