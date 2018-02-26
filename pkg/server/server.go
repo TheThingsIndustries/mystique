@@ -16,7 +16,6 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
-	"github.com/TheThingsIndustries/mystique/pkg/retained"
 	"github.com/TheThingsIndustries/mystique/pkg/session"
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
@@ -34,16 +33,6 @@ func WithSessionStore(sess session.Store) Option {
 	return func(s *server) { s.sessions = sess }
 }
 
-// WithoutRetained returns an option that ignores retained messages
-func WithoutRetained() Option {
-	return func(s *server) { s.retain = false }
-}
-
-// WithRetainedMessagesStore returns an option that sets the store for retained messages
-func WithRetainedMessagesStore(store retained.Store) Option {
-	return func(s *server) { s.retainedMessages = store }
-}
-
 // WithIPLimits returns an option that sets limits on connections per IP
 func WithIPLimits(max int) Option {
 	return func(s *server) { s.ipLimits = newLimits(max) }
@@ -58,34 +47,28 @@ func WithFirehose(f chan<- *packet.PublishPacket) Option {
 type Server interface {
 	Handle(conn mqttnet.Conn)
 	Sessions() session.Store
-	Retained() retained.Store
 	Publish(pkt *packet.PublishPacket)
 }
 
 // New returns a new MQTT server
 func New(ctx context.Context, option ...Option) Server {
-	s := &server{ctx: ctx, logger: log.FromContext(ctx), retain: true}
+	s := &server{ctx: ctx, logger: log.FromContext(ctx)}
 	for _, opt := range option {
 		opt(s)
 	}
 	if s.sessions == nil {
 		s.sessions = session.SimpleStore(s.ctx)
 	}
-	if s.retain && s.retainedMessages == nil {
-		s.retainedMessages = retained.SimpleStore(s.ctx)
-	}
 	return s
 }
 
 type server struct {
-	ctx              context.Context
-	logger           log.Interface
-	auth             auth.Interface // may be nil
-	ipLimits         *limits
-	firehose         chan<- *packet.PublishPacket
-	sessions         session.Store
-	retain           bool
-	retainedMessages retained.Store
+	ctx      context.Context
+	logger   log.Interface
+	auth     auth.Interface // may be nil
+	ipLimits *limits
+	firehose chan<- *packet.PublishPacket
+	sessions session.Store
 }
 
 func (s *server) Publish(pkt *packet.PublishPacket) {
@@ -150,9 +133,6 @@ func (s *server) Handle(conn mqttnet.Conn) {
 	// deliverLoop
 	go func() {
 		for msg := range session.DeliveryChan() {
-			if s.retain {
-				s.retainedMessages.Retain(msg)
-			}
 			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Debug("Publish message")
 			go s.Publish(msg)
 		}
@@ -206,13 +186,6 @@ func (s *server) Handle(conn mqttnet.Conn) {
 			case *packet.SubscribePacket:
 				logger.Debug("Read SUBSCRIBE")
 				response, err = session.HandleSubscribe(pkt)
-				if s.retain {
-					go func() {
-						for _, pkt := range s.retainedMessages.Get(pkt.Topics...) {
-							session.Publish(pkt)
-						}
-					}()
-				}
 			case *packet.UnsubscribePacket:
 				logger.Debug("Read UNSUBSCRIBE")
 				response, err = session.HandleUnsubscribe(pkt)
@@ -296,10 +269,6 @@ func (s *server) Handle(conn mqttnet.Conn) {
 
 func (s *server) Sessions() session.Store {
 	return s.sessions
-}
-
-func (s *server) Retained() retained.Store {
-	return s.retainedMessages
 }
 
 var boot = time.Now()
@@ -406,15 +375,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 			pkt.Duplicate = true
 		}
 		conn.Send(pkt)
-	}
-
-	// Send retained messages
-	if s.retain {
-		go func() {
-			for _, pkt := range s.retainedMessages.Get(session.SubscriptionTopics()...) {
-				session.Publish(pkt)
-			}
-		}()
 	}
 
 	return session, nil

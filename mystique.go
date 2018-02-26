@@ -179,9 +179,6 @@ func RunServer(s server.Server) {
 		if s.Sessions() != nil {
 			http.Handle("/debug/sessions", inspect.Sessions(s.Sessions()))
 		}
-		if s.Retained() != nil {
-			http.Handle("/debug/retained", inspect.Retained(s.Retained()))
-		}
 		logger.WithField("address", listen).Info("Starting status+debug+metrics server")
 		go func() {
 			err := http.ListenAndServe(listen, nil)

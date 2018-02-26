@@ -67,16 +67,15 @@ func (m *mockConn) SetReadTimeout(d time.Duration) {
 }
 
 func newServer() *server {
-	return New(context.Background(), WithAuth(nil), WithRetainedMessagesStore(nil), WithSessionStore(nil)).(*server)
+	return New(context.Background(), WithAuth(nil), WithSessionStore(nil)).(*server)
 }
 
 func TestServer(t *testing.T) {
 	a := assertions.New(t)
 
 	s := newServer()
-	a.So(s.auth, should.BeNil)                // Auth can be empty
-	a.So(s.sessions, should.NotBeNil)         // Should use default
-	a.So(s.retainedMessages, should.NotBeNil) // Should use default
+	a.So(s.auth, should.BeNil)        // Auth can be empty
+	a.So(s.sessions, should.NotBeNil) // Should use default
 }
 
 func TestHandle(t *testing.T) {
