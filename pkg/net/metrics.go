@@ -52,26 +52,8 @@ func init() {
 	prometheus.MustRegister(sentMessages)
 }
 
-var packetTypeToName = map[byte]string{
-	packet.CONNECT:     "connect",
-	packet.CONNACK:     "connack",
-	packet.PUBLISH:     "publish",
-	packet.PUBACK:      "puback",
-	packet.PUBREC:      "pubrec",
-	packet.PUBREL:      "pubrel",
-	packet.PUBCOMP:     "pubcomp",
-	packet.SUBSCRIBE:   "subscribe",
-	packet.SUBACK:      "suback",
-	packet.UNSUBSCRIBE: "unsubscribe",
-	packet.UNSUBACK:    "unsuback",
-	packet.PINGREQ:     "pingreq",
-	packet.PINGRESP:    "pingresp",
-	packet.DISCONNECT:  "disconnect",
-	packet.AUTH:        "auth",
-}
-
 func registerSend(pkt packet.ControlPacket) {
-	packetType := packetTypeToName[pkt.PacketType()]
+	packetType := packet.Name[pkt.PacketType()]
 	if packetType == "" {
 		packetType = "unknown"
 	}
@@ -79,7 +61,7 @@ func registerSend(pkt packet.ControlPacket) {
 }
 
 func registerReceive(pkt packet.ControlPacket) {
-	packetType := packetTypeToName[pkt.PacketType()]
+	packetType := packet.Name[pkt.PacketType()]
 	if packetType == "" {
 		packetType = "unknown"
 	}

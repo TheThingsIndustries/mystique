@@ -32,6 +32,24 @@ const (
 	AUTH                   = 15 // Authentication exchange
 )
 
+var Name = map[byte]string{
+	CONNECT:     "connect",
+	CONNACK:     "connack",
+	PUBLISH:     "publish",
+	PUBACK:      "puback",
+	PUBREC:      "pubrec",
+	PUBREL:      "pubrel",
+	PUBCOMP:     "pubcomp",
+	SUBSCRIBE:   "subscribe",
+	SUBACK:      "suback",
+	UNSUBSCRIBE: "unsubscribe",
+	UNSUBACK:    "unsuback",
+	PINGREQ:     "pingreq",
+	PINGRESP:    "pingresp",
+	DISCONNECT:  "disconnect",
+	AUTH:        "auth",
+}
+
 // ErrProtocolViolation is returned when a message violates the protocol specification
 var ErrProtocolViolation = errors.New("Protocol Violation")
 
