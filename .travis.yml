@@ -10,7 +10,7 @@ cache:
   - vendor
 
 before_install:
-- echo "machine github.com login ${GITHUB_ACCESS_TOKEN}" >> ~/.netrc
+- git config --global url."git@github.com:".insteadOf "https://github.com/"
 - go get -u github.com/golang/dep/cmd/dep
 
 install:
