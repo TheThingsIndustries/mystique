@@ -40,8 +40,7 @@ func (s *session) ReadConnect() error {
 		logger.WithError(err).Warn("Invalid CONNECT")
 		if code, ok := err.(packet.ConnectReturnCode); ok {
 			connackPacket.ReturnCode = code
-			err = s.conn.Send(connackPacket)
-			if err != nil {
+			if err := s.conn.Send(connackPacket); err != nil {
 				logger.WithError(err).Warn("Could not send CONNACK")
 				return err
 			}
