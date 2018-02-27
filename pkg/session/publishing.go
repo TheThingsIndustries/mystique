@@ -11,7 +11,6 @@ import (
 )
 
 func (s *session) Publish(pkt *packet.PublishPacket) {
-	logger := log.FromContext(s.ctx).WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS})
 	if s.subscriptions.Count() == 0 {
 		return
 	}
@@ -22,6 +21,7 @@ func (s *session) Publish(pkt *packet.PublishPacket) {
 	if !ok {
 		return
 	}
+	logger := log.FromContext(s.ctx).WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS})
 	pub := &packet.PublishPacket{
 		Received:   pkt.Received,
 		Retain:     pkt.Retain,
