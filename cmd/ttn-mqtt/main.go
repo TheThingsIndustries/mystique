@@ -60,6 +60,7 @@ func main() {
 	}, "TTN Account Servers")
 
 	pflag.Int("limit.ip", 0, "Connection limit per IP address")
+	pflag.Int("limit.user", 0, "Connection limit per Username")
 
 	mystique.Configure("ttn-mqtt")
 
@@ -128,6 +129,10 @@ func main() {
 
 	if ipLimit := viper.GetInt("limit.ip"); ipLimit > 0 {
 		serverOptions = append(serverOptions, server.WithIPLimits(ipLimit))
+	}
+
+	if userLimit := viper.GetInt("limit.user"); userLimit > 0 {
+		serverOptions = append(serverOptions, server.WithUserLimits(userLimit))
 	}
 
 	s := server.New(mystique.Context(), serverOptions...)
