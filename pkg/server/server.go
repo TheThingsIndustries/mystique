@@ -81,15 +81,12 @@ func (s *server) Publish(pkt *packet.PublishPacket) {
 // Handle a connection
 func (s *server) Handle(conn mqttnet.Conn) {
 	remoteAddr := conn.RemoteAddr().String()
-	evt := EventMetadata{RemoteAddr: remoteAddr}
 	logger := s.logger.WithField("remote_addr", remoteAddr)
 	logger.Debug("Open connection")
 	conns.Inc()
-	s.PublishEvent("connection.open", evt)
 	defer func() {
 		logger.Debug("Close connection")
 		conns.Dec()
-		s.PublishEvent("connection.close", evt)
 		conn.Close()
 	}()
 
@@ -106,19 +103,15 @@ func (s *server) Handle(conn mqttnet.Conn) {
 
 	sessionID := session.ID()
 	logger = logger.WithField("client_id", sessionID)
-	evt.ClientID = sessionID
 	if username := session.Username(); username != "" {
 		logger = logger.WithField("username", username)
-		evt.Username = username
 	}
 
 	defer func() {
 		if session.IsGarbage() {
 			logger.Info("End session")
-			s.PublishEvent("session.end", evt)
 		} else {
 			logger.Info("Detach session")
-			s.PublishEvent("session.detach", evt)
 		}
 	}()
 
@@ -279,7 +272,6 @@ var replaceClientID = strings.NewReplacer("/", ".")
 
 func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession, err error) {
 	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
-	evt := EventMetadata{RemoteAddr: conn.RemoteAddr().String()}
 
 	// Receive the connect packet or exit
 	pkt, err := conn.Receive()
@@ -298,9 +290,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 	} else {
 		connect.ClientID = replaceClientID.Replace(connect.ClientID)
 	}
-
-	evt.ClientID = connect.ClientID
-	evt.Username = connect.Username
 
 	defer func() {
 		if err != nil {
@@ -337,7 +326,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 		if err = s.auth.Connect(authInfo); err != nil {
 			logger.WithError(err).Warn("Login failed")
 			connectCounter.WithLabelValues("refused_login").Inc()
-			s.PublishEvent("auth.refused.login", evt)
 			return
 		}
 	}
@@ -354,7 +342,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 	if err != nil {
 		logger.WithError(err).Warn("Session failed to attach")
 		connectCounter.WithLabelValues("refused_client_id").Inc()
-		s.PublishEvent("auth.refused.client_id", evt)
 		return
 	}
 
@@ -364,7 +351,6 @@ func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession
 		logger.Info("Start session")
 	}
 	connectCounter.WithLabelValues("accepted").Inc()
-	s.PublishEvent("auth.accepted", evt)
 
 	// Send the connack
 	conn.Send(response)

@@ -113,7 +113,6 @@ func (s *serverSession) HandleConnect(conn net.Conn, authInfo *auth.Info, pkt *p
 			Message:   pkt.WillMessage,
 		}
 		s.will.TopicParts = topic.Split(s.will.TopicName)
-		s.PublishEvent("session.set_will", EventMetadata{Topic: s.will.TopicName})
 	}
 
 	return response, nil
@@ -208,7 +207,6 @@ func (s *serverSession) HandleSubscribe(pkt *packet.SubscribePacket) (*packet.Su
 		acceptedTopic, qos, err := s.getAuthInfo().Subscribe(topic, pkt.QoSs[i])
 		if err != nil {
 			response.ReturnCodes[i] = packet.SubscribeRejected
-			s.PublishEvent("session.subscribe_rejected", EventMetadata{Topic: topic})
 			continue
 		}
 		if acceptedTopic != topic {
@@ -216,7 +214,6 @@ func (s *serverSession) HandleSubscribe(pkt *packet.SubscribePacket) (*packet.Su
 		}
 		if s.subscriptions.Add(acceptedTopic, qos) {
 			logger.WithFields(log.F{"topic": acceptedTopic, "qos": qos}).Debug("Subscribe")
-			s.PublishEvent("session.subscribed", EventMetadata{Topic: acceptedTopic})
 		}
 		response.ReturnCodes[i] = qos
 	}
@@ -228,7 +225,6 @@ func (s *serverSession) HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packe
 	for _, topic := range pkt.Topics {
 		if s.subscriptions.Remove(topic) {
 			s.logger.WithField("topic", topic).Debug("Unsubscribe")
-			s.PublishEvent("session.unsubscribed", EventMetadata{Topic: topic})
 		}
 	}
 	return response, nil
@@ -284,7 +280,6 @@ func (s *serverSession) DeliveryChan() <-chan *packet.PublishPacket {
 					s.filteredDelivery <- pkt
 				} else {
 					s.logger.WithField("topic", pkt.TopicName).Debug("Drop unauthorized publish")
-					s.PublishEvent("session.publish.refused", EventMetadata{Topic: pkt.TopicName})
 				}
 			}
 			s.filteredDeliveryMu.Lock()
