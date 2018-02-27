@@ -3,36 +3,51 @@
 package session
 
 import (
+	"context"
 	"testing"
 
-	"github.com/TheThingsIndustries/mystique/pkg/log"
+	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/smartystreets/assertions"
 	"github.com/smartystreets/assertions/should"
 )
 
+func deliver(len int) (chan *packet.PublishPacket, func(*packet.PublishPacket)) {
+	ch := make(chan *packet.PublishPacket, len)
+	return ch, func(pkt *packet.PublishPacket) {
+		ch <- pkt
+	}
+}
+
 func TestPublishingQoS0(t *testing.T) {
 	a := assertions.New(t)
+	ctx := context.Background()
+	auth := new(auth.Info)
 
-	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
-	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
+	_, deliverA := deliver(1)
+	deliveredB, deliverB := deliver(1)
+
+	sessionA := &session{ctx: ctx, auth: auth, publish: make(chan *packet.PublishPacket, 16), deliver: deliverA}
+	sessionA.subscriptions.Add("#", 0)
+	sessionB := &session{ctx: ctx, auth: auth, publish: make(chan *packet.PublishPacket, 16), deliver: deliverB}
 
 	msg := &packet.PublishPacket{
-		TopicName: "foo",
-		Message:   []byte("bar"),
+		TopicParts: []string{"foo"},
+		Message:    []byte("bar"),
 	}
 
 	sessionA.Publish(msg)
 
 	a.So(sessionA.pendingOut.Get(), should.HaveLength, 0)
 	a.So(sessionB.pendingIn.Get(), should.HaveLength, 0)
+	a.So(sessionA.PublishChan(), should.HaveLength, 1)
 
 	res, err := sessionB.HandlePublish(<-sessionA.PublishChan())
 	a.So(err, should.BeNil)
 	a.So(res, should.BeNil)
 
-	a.So(sessionB.DeliveryChan(), should.HaveLength, 1)
-	a.So(<-sessionB.DeliveryChan(), should.Resemble, msg)
+	a.So(deliveredB, should.HaveLength, 1)
+	a.So(<-deliveredB, should.Resemble, msg)
 
 	a.So(sessionA.pendingOut.Get(), should.HaveLength, 0)
 	a.So(sessionB.pendingIn.Get(), should.HaveLength, 0)
@@ -40,14 +55,20 @@ func TestPublishingQoS0(t *testing.T) {
 
 func TestPublishingQoS1(t *testing.T) {
 	a := assertions.New(t)
+	ctx := context.Background()
+	auth := new(auth.Info)
 
-	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
-	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
+	_, deliverA := deliver(1)
+	deliveredB, deliverB := deliver(1)
+
+	sessionA := &session{ctx: ctx, auth: auth, publish: make(chan *packet.PublishPacket, 16), deliver: deliverA}
+	sessionA.subscriptions.Add("#", 1)
+	sessionB := &session{ctx: ctx, auth: auth, publish: make(chan *packet.PublishPacket, 16), deliver: deliverB}
 
 	msg := &packet.PublishPacket{
-		TopicName: "foo",
-		Message:   []byte("bar"),
-		QoS:       1,
+		TopicParts: []string{"foo"},
+		Message:    []byte("bar"),
+		QoS:        1,
 	}
 
 	a.So(sessionA.pendingOut.Get(), should.HaveLength, 0)
@@ -63,8 +84,9 @@ func TestPublishingQoS1(t *testing.T) {
 	a.So(puback, should.NotBeNil)
 	a.So(puback, should.HaveSameTypeAs, new(packet.PubackPacket))
 
-	a.So(sessionB.DeliveryChan(), should.HaveLength, 1)
-	a.So(<-sessionB.DeliveryChan(), should.Resemble, msg)
+	a.So(deliveredB, should.HaveLength, 1)
+	msg.PacketIdentifier = 1
+	a.So(<-deliveredB, should.Resemble, msg)
 
 	a.So(sessionA.pendingOut.Get(), should.HaveLength, 1)
 	a.So(sessionB.pendingIn.Get(), should.HaveLength, 0)
@@ -78,14 +100,20 @@ func TestPublishingQoS1(t *testing.T) {
 
 func TestPublishingQoS2(t *testing.T) {
 	a := assertions.New(t)
+	ctx := context.Background()
+	auth := new(auth.Info)
 
-	sessionA := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
-	sessionB := &session{publishOut: make(chan *packet.PublishPacket, 16), delivery: make(chan *packet.PublishPacket, 1), logger: log.Noop}
+	_, deliverA := deliver(1)
+	deliveredB, deliverB := deliver(1)
+
+	sessionA := &session{ctx: ctx, auth: auth, publish: make(chan *packet.PublishPacket, 16), deliver: deliverA}
+	sessionA.subscriptions.Add("#", 2)
+	sessionB := &session{ctx: ctx, auth: auth, publish: make(chan *packet.PublishPacket, 16), deliver: deliverB}
 
 	msg := &packet.PublishPacket{
-		TopicName: "foo",
-		Message:   []byte("bar"),
-		QoS:       2,
+		TopicParts: []string{"foo"},
+		Message:    []byte("bar"),
+		QoS:        2,
 	}
 
 	a.So(sessionA.pendingOut.Get(), should.HaveLength, 0)
@@ -103,8 +131,9 @@ func TestPublishingQoS2(t *testing.T) {
 	a.So(pubrec, should.NotBeNil)
 	a.So(pubrec, should.HaveSameTypeAs, new(packet.PubrecPacket))
 
-	a.So(sessionB.DeliveryChan(), should.HaveLength, 1)
-	a.So(<-sessionB.DeliveryChan(), should.Resemble, msg)
+	a.So(deliveredB, should.HaveLength, 1)
+	msg.PacketIdentifier = 1
+	a.So(<-deliveredB, should.Resemble, msg)
 
 	a.So(sessionA.pendingOut.Get(), should.HaveLength, 1)
 	a.So(sessionB.pendingIn.Get(), should.HaveLength, 1)
@@ -115,7 +144,7 @@ func TestPublishingQoS2(t *testing.T) {
 		a.So(pubrec, should.NotBeNil)
 		a.So(pubrec, should.HaveSameTypeAs, new(packet.PubrecPacket))
 
-		a.So(sessionB.DeliveryChan(), should.HaveLength, 0)
+		a.So(deliveredB, should.HaveLength, 0)
 
 		a.So(sessionA.pendingOut.Get(), should.HaveLength, 1)
 		a.So(sessionB.pendingIn.Get(), should.HaveLength, 1)

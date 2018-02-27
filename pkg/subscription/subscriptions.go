@@ -118,16 +118,6 @@ func (s *List) Count() (count int) {
 	return
 }
 
-// SubscriptionTopics returns all topics in the subscription list
-func (s *List) SubscriptionTopics() (topics []string) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, sub := range s.subscriptions {
-		topics = append(topics, sub.filter)
-	}
-	return
-}
-
 // Subscriptions returns the subscriptions in the list
 func (s *List) Subscriptions() map[string]byte {
 	s.mu.RLock()

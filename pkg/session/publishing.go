@@ -3,30 +3,59 @@
 package session
 
 import (
+	"errors"
+	"sync/atomic"
+
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 )
 
 func (s *session) Publish(pkt *packet.PublishPacket) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if pkt.QoS > 0 {
-		s.publishIdentifier++
-		pkt.PacketIdentifier = uint16(s.publishIdentifier)
-		s.pendingOut.Add(pkt.PacketIdentifier, pkt)
+	logger := log.FromContext(s.ctx).WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS})
+	if s.subscriptions.Count() == 0 {
+		return
+	}
+	if !s.auth.CanRead(pkt.TopicParts...) {
+		return
+	}
+	qos, ok := s.subscriptions.Match(pkt.TopicParts...)
+	if !ok {
+		return
+	}
+	pub := &packet.PublishPacket{
+		Received:   pkt.Received,
+		Retain:     pkt.Retain,
+		QoS:        qos,
+		TopicName:  pkt.TopicName,
+		TopicParts: pkt.TopicParts,
+		Message:    pkt.Message,
+	}
+	if pub.QoS > pkt.QoS {
+		pub.QoS = pkt.QoS
+	}
+	if pub.QoS > 0 {
+		publishIdentifier := atomic.AddUint64(&s.publishIdentifier, 1)
+		pub.PacketIdentifier = uint16(publishIdentifier)
+		s.pendingOut.Add(pub.PacketIdentifier, pub)
 		if s.pendingOut.Len() > PublishBufferSize*2 {
 			s.pendingOut.Clear()
+			logger.WithField("error", "Too many pending messages").Warn("Cleared pendingOut")
 		}
 	}
-	logger := s.logger.WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS})
 	select {
-	case s.publishOut <- pkt:
+	case s.publish <- pub:
+		atomic.AddUint64(&s.published, 1)
 		logger.Debug("Publish message")
 	default:
-		logger.Warn("Dropping message [buffer full]")
-		// TODO: if session connected, this means the client can't keep up, what to do?
-		// TODO: if the session is disconnected, we should probably just discard the session
+		logger.WithError(errors.New("connection too slow")).Warn("Drop message")
+	}
+}
+
+func (s *session) Deliver(pkt *packet.PublishPacket) {
+	if s.auth.CanWrite(pkt.TopicParts...) {
+		log.FromContext(s.ctx).WithFields(log.F{"topic": pkt.TopicName, "size": len(pkt.Message), "qos": pkt.QoS}).Debug("Deliver message")
+		atomic.AddUint64(&s.delivered, 1)
+		s.deliver(pkt)
 	}
 }
 
@@ -36,8 +65,12 @@ func (s *session) HandlePublish(pkt *packet.PublishPacket) (response packet.Cont
 		if !s.pendingIn.Add(pkt.PacketIdentifier, pkt) { // already seen this message
 			return
 		}
+		if s.pendingIn.Len() > PublishBufferSize*2 {
+			s.pendingIn.Clear()
+			log.FromContext(s.ctx).WithField("error", "Too many pending messages").Warn("Cleared pendingIn")
+		}
 	}
-	s.delivery <- pkt
+	s.Deliver(pkt)
 	return
 }
 
@@ -61,14 +94,6 @@ func (s *session) HandlePubrel(pkt *packet.PubrelPacket) (response *packet.Pubco
 func (s *session) HandlePubcomp(pkt *packet.PubcompPacket) (err error) {
 	s.pendingOut.Remove(pkt.PacketIdentifier)
 	return
-}
-
-func (s *session) DeliveryChan() (delivery <-chan *packet.PublishPacket) {
-	return s.delivery
-}
-
-func (s *session) PublishChan() (publishOut <-chan *packet.PublishPacket) {
-	return s.publishOut
 }
 
 func (s *session) Pending() []packet.ControlPacket {

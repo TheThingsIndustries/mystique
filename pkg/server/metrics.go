@@ -4,16 +4,6 @@ package server
 
 import "github.com/prometheus/client_golang/prometheus"
 
-var connectCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Namespace: "mystique",
-		Subsystem: "server",
-		Name:      "connect_handled_total",
-		Help:      "Total connect messages handled.",
-	},
-	[]string{"result"},
-)
-
 var publishLatency = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
 		Namespace: "mystique",
@@ -32,6 +22,6 @@ var conns = prometheus.NewGauge(prometheus.GaugeOpts{
 })
 
 func init() {
-	prometheus.MustRegister(connectCounter)
 	prometheus.MustRegister(publishLatency)
+	prometheus.MustRegister(conns)
 }

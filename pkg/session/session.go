@@ -5,48 +5,55 @@ package session
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"io"
+	"sync/atomic"
+	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
+	"github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/pending"
 	"github.com/TheThingsIndustries/mystique/pkg/subscription"
+	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // PublishBufferSize sets the size of publish channel buffers
 var PublishBufferSize = 64
 
-// Session interface shared in both client and server
+// Session interface
 type Session interface {
 	Context() context.Context
 
-	ID() string
-	Username() string
+	AuthInfo() auth.Info
 
-	// Delivery channel of incoming publish messages
-	DeliveryChan() <-chan *packet.PublishPacket
-
-	// Publish channel of outgoing publish messages
 	PublishChan() <-chan *packet.PublishPacket
 
-	// Send an outgoing Publish message
+	Stats() Stats
+
+	// Read and handle the connect packet
+	ReadConnect() error
+
+	// Read and handle the next control packet, optionally returning a response
+	ReadPacket() (packet.ControlPacket, error)
+
+	// Handle a Disconnect packet
+	// unsets the will
+	HandleDisconnect()
+
+	// Send an outgoing Publish message if the session is subscribed to the topic
 	// if subscription with QoS 0: sends the message
 	// if subscription with QoS 1: sends the message, stores the message until Puback
 	// if subscription with QoS 2: sends the message, stores the message until Pubrec
-	//
-	// the server-side implementation of Publish adds the following:
-	// - it matches the topic of the message to the session's subscriptions before publishing
-	// - it checks if the client is allowed to receive on the topic
+	// if authentication is enabled, the server checks if the client is allowed to receive on the topic
 	Publish(pkt *packet.PublishPacket)
 
 	// Handle an incoming Publish packet
 	// if QoS 0: delivers the packet and returns nil
 	// if QoS 1: delivers the packet and returns a *PubackPacket
 	// if QoS 2: delivers the packet, stores Pubrec until Pubrel, returns *PubrecPacket
-	//
-	// the server-side implementation of Publish adds the following:
-	// - it checks if the client is allowed to publish on the topic
+	// if authentication is enabled, the server checks if the client is allowed to publish on the topic
 	HandlePublish(pkt *packet.PublishPacket) (packet.ControlPacket, error)
 
 	// Handle a Puback packet
@@ -68,47 +75,53 @@ type Session interface {
 	// Pending messages that should be retransmitted on a reconnect
 	Pending() []packet.ControlPacket
 
+	// Handle a Subscribe packet
+	// adds subscriptions, returns *SubackPacket
+	// if authentication is enabled, the server checks if the client is allowed to subscribe to the topic
+	HandleSubscribe(pkt *packet.SubscribePacket) (*packet.SubackPacket, error)
+
+	// Handle an Unsubscribe packet
+	// removes subscriptions, returns *UnsubackPacket
+	HandleUnsubscribe(pkt *packet.UnsubscribePacket) (*packet.UnsubackPacket, error)
+
+	// Subscriptions of the session
 	Subscriptions() map[string]byte
 
-	SubscriptionTopics() []string
-
 	// Close the session
-	// closes the connection (if connected)
-	// on the server: delivers the will (if set) and then unsets it
-	// on the server: clears the session state if CleanStart
+	// closes the connection
+	// delivers the will (if set) and then unsets it
+	// clears the session state
 	Close()
 }
 
-func newSession(ctx context.Context) session {
-	return session{
-		ctx:        ctx,
-		logger:     log.FromContext(ctx),
-		publishOut: make(chan *packet.PublishPacket, PublishBufferSize),
-		delivery:   make(chan *packet.PublishPacket),
+func New(ctx context.Context, conn net.Conn, deliver func(*packet.PublishPacket)) Session {
+	return &session{
+		ctx:     log.NewContext(ctx, log.FromContext(ctx)),
+		conn:    conn,
+		publish: make(chan *packet.PublishPacket, PublishBufferSize),
+		deliver: deliver,
 	}
 }
 
 type session struct {
-	mu sync.RWMutex
-
-	ctx context.Context
-
-	logger log.Interface
-
-	authMu   sync.RWMutex
-	authinfo *auth.Info
-
-	// (indirectly) contains the session ID and other options
-	connect *packet.ConnectPacket
-
-	// current publish packetIdentifier number; only the 16lsb will actually be used
+	// BEGIN sync/atomic aligned
 	publishIdentifier uint64
+	published         uint64
+	delivered         uint64
+	// END sync/atomig aligned
 
-	// publish send queue - buffered
-	publishOut chan *packet.PublishPacket
+	ctx     context.Context
+	conn    net.Conn
+	publish chan *packet.PublishPacket
+	deliver func(pkt *packet.PublishPacket)
 
-	// publish delivery channel - blocking
-	delivery chan *packet.PublishPacket
+	auth *auth.Info
+
+	// will of the session
+	// can be set on (re)connect
+	// is delivered when conn breaks
+	// is cleared on HandleDisconnect
+	will *packet.PublishPacket
 
 	// pendingOut contains
 	// - Publish packets that have not been sent
@@ -122,35 +135,72 @@ type session struct {
 
 	// subcriptions of the session
 	subscriptions subscription.List
-
-	wg sync.WaitGroup
 }
 
 func (s *session) Context() context.Context { return s.ctx }
 
-func (s *session) getAuthInfo() *auth.Info {
-	s.authMu.RLock()
-	authinfo := s.authinfo
-	s.authMu.RUnlock()
-	return authinfo
+func (s *session) AuthInfo() auth.Info {
+	auth := *s.auth
+	return auth
 }
 
-func (s *session) setAuthInfo(authinfo *auth.Info) {
-	s.authMu.Lock()
-	s.authinfo = authinfo
-	s.authMu.Unlock()
-}
-
-func (s *session) ID() (id string) {
-	if authinfo := s.getAuthInfo(); authinfo != nil {
-		id = authinfo.ClientID
+func (s *session) Stats() Stats {
+	return Stats{
+		Published: atomic.LoadUint64(&s.published),
+		Delivered: atomic.LoadUint64(&s.delivered),
 	}
-	return
 }
 
-func (s *session) Username() (username string) {
-	if authinfo := s.getAuthInfo(); authinfo != nil {
-		username = authinfo.Username
+func (s *session) PublishChan() <-chan *packet.PublishPacket {
+	return s.publish
+}
+
+func (s *session) Close() {
+	if s.will != nil {
+		s.Deliver(s.will)
+		s.will = nil
+	}
+}
+
+func (s *session) ReadPacket() (response packet.ControlPacket, err error) {
+	logger := log.FromContext(s.ctx)
+	pkt, err := s.conn.Receive()
+	if err != nil {
+		if err != io.EOF {
+			logger.WithError(err).Warn("Error receiving packet")
+		}
+		return nil, err
+	}
+	if err := pkt.Validate(); err != nil {
+		logger.WithError(err).Warn("Received invalid packet")
+		return nil, err
+	}
+	logger.Debugf("Read %s packet", packet.Name[pkt.PacketType()])
+	switch pkt := pkt.(type) {
+	case *packet.PublishPacket:
+		pkt.Received = time.Now().UTC()
+		if pkt.TopicName != "" {
+			pkt.TopicParts = topic.Split(pkt.TopicName)
+		}
+		response, err = s.HandlePublish(pkt)
+	case *packet.PubackPacket:
+		err = s.HandlePuback(pkt)
+	case *packet.PubrecPacket:
+		response, err = s.HandlePubrec(pkt)
+	case *packet.PubrelPacket:
+		response, err = s.HandlePubrel(pkt)
+	case *packet.PubcompPacket:
+		err = s.HandlePubcomp(pkt)
+	case *packet.SubscribePacket:
+		response, err = s.HandleSubscribe(pkt)
+	case *packet.UnsubscribePacket:
+		response, err = s.HandleUnsubscribe(pkt)
+	case *packet.PingreqPacket:
+		response = pkt.Response()
+	case *packet.DisconnectPacket:
+		s.HandleDisconnect()
+	default:
+		err = errors.New("unknown packet type")
 	}
 	return
 }

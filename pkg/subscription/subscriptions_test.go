@@ -20,7 +20,6 @@ func TestSubscriptions(t *testing.T) {
 
 	a.So(s.Count(), should.Equal, 1)
 	a.So(s.Subscriptions(), should.ContainKey, "foo")
-	a.So(s.SubscriptionTopics(), should.Contain, "foo")
 
 	qos, ok := s.Match("foo")
 	a.So(ok, should.BeTrue)
@@ -50,5 +49,4 @@ func TestSubscriptions(t *testing.T) {
 	s.Clear()
 	a.So(s.Count(), should.Equal, 0)
 	a.So(s.Subscriptions(), should.BeEmpty)
-	a.So(s.SubscriptionTopics(), should.BeEmpty)
 }

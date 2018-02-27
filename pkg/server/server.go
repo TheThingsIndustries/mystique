@@ -5,11 +5,8 @@ package server
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
@@ -17,15 +14,16 @@ import (
 	mqttnet "github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/session"
-	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
 
 // Option for the server
 type Option func(s *server)
 
 // WithAuth returns an option that sets the authentication
-func WithAuth(auth auth.Interface) Option {
-	return func(s *server) { s.auth = auth }
+func WithAuth(iface auth.Interface) Option {
+	return func(s *server) {
+		s.ctx = auth.NewContextWithInterface(s.ctx, iface)
+	}
 }
 
 // WithSessionStore returns an option that sets store for sessions
@@ -38,187 +36,106 @@ func WithIPLimits(max int) Option {
 	return func(s *server) { s.ipLimits = newLimits(max) }
 }
 
-// WithFirehose sets the firehose of the server that receives all publishes
-func WithFirehose(f chan<- *packet.PublishPacket) Option {
-	return func(s *server) { s.firehose = f }
+// WithUserLimits returns an option that sets limits on connections per User
+func WithUserLimits(max int) Option {
+	return func(s *server) { s.userLimits = newLimits(max) }
 }
 
 // Server interface
 type Server interface {
-	Handle(conn mqttnet.Conn)
 	Sessions() session.Store
 	Publish(pkt *packet.PublishPacket)
+	Handle(conn mqttnet.Conn)
 }
 
 // New returns a new MQTT server
 func New(ctx context.Context, option ...Option) Server {
-	s := &server{ctx: ctx, logger: log.FromContext(ctx)}
+	s := &server{ctx: ctx}
 	for _, opt := range option {
 		opt(s)
 	}
 	if s.sessions == nil {
-		s.sessions = session.SimpleStore(s.ctx)
+		s.sessions = session.SimpleStore()
 	}
 	return s
 }
 
 type server struct {
-	ctx      context.Context
-	logger   log.Interface
-	auth     auth.Interface // may be nil
-	ipLimits *limits
-	firehose chan<- *packet.PublishPacket
-	sessions session.Store
+	ctx        context.Context
+	ipLimits   *limits
+	userLimits *limits
+	sessions   session.Store
+}
+
+func (s *server) Sessions() session.Store {
+	return s.sessions
 }
 
 func (s *server) Publish(pkt *packet.PublishPacket) {
 	s.sessions.Publish(pkt)
-	if s.firehose != nil {
-		s.firehose <- pkt
-	}
 }
 
-// Handle a connection
 func (s *server) Handle(conn mqttnet.Conn) {
+	s.handle(conn)
+}
+
+func (s *server) handle(conn mqttnet.Conn) (err error) {
+	ctx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+
 	remoteAddr := conn.RemoteAddr().String()
-	logger := s.logger.WithField("remote_addr", remoteAddr)
+
+	logger := log.FromContext(s.ctx).WithField("remote_addr", remoteAddr)
+	ctx = log.NewContext(ctx, logger)
+
 	logger.Debug("Open connection")
 	conns.Inc()
 	defer func() {
+		if err != nil && err != io.EOF {
+			logger = logger.WithError(err)
+		}
 		logger.Debug("Close connection")
 		conns.Dec()
 		conn.Close()
 	}()
 
 	ip, _, _ := net.SplitHostPort(remoteAddr)
-	if err := s.ipLimits.connect(ip); err != nil {
-		return
+	if err = s.ipLimits.connect(ip); err != nil {
+		return err
 	}
 	defer s.ipLimits.disconnect(ip)
 
-	session, err := s.HandleConnect(conn)
-	if err != nil {
-		return
+	session := session.New(ctx, conn, s.Publish)
+
+	if err = session.ReadConnect(); err != nil {
+		return err
+	}
+	defer session.Close()
+
+	if username := session.AuthInfo().Username; username != "" {
+		if err = s.userLimits.connect(username); err != nil {
+			return err
+		}
+		defer s.userLimits.disconnect(username)
 	}
 
-	sessionID := session.ID()
-	logger = logger.WithField("client_id", sessionID)
-	if username := session.Username(); username != "" {
-		logger = logger.WithField("username", username)
-	}
+	s.sessions.Store(session)
+	defer s.sessions.Delete(session)
 
-	defer func() {
-		if session.IsGarbage() {
-			logger.Info("End session")
-		} else {
-			logger.Info("Detach session")
-		}
-	}()
+	logger = log.FromContext(session.Context()) // update with session fields
 
-	// Make sure the session is closed when the client disconnects
-	var kicked bool
-	defer func() {
-		if !kicked {
-			session.Close()
-		}
-	}()
-
-	// deliverLoop
-	go func() {
-		for msg := range session.DeliveryChan() {
-			logger.WithFields(log.F{"topic": msg.TopicName, "size": len(msg.Message), "qos": msg.QoS}).Debug("Publish message")
-			go s.Publish(msg)
-		}
-	}()
-
-	// readLoop
 	control := make(chan packet.ControlPacket)
 	readErr := make(chan error, 1)
-	go func() (err error) {
-		defer func() {
+	go func() {
+		for {
+			response, err := session.ReadPacket()
 			if err != nil {
 				readErr <- err
-			}
-			close(readErr)
-			close(control)
-		}()
-		for {
-			pkt, err := conn.Receive()
-			if err != nil {
-				if err == io.EOF || kicked {
-					return nil
-				}
-				logger.WithError(err).Warn("Error receiving packet")
-				return err
-			}
-			if err := pkt.Validate(); err != nil {
-				logger.WithError(err).Warn("Invalid packet")
-				return err
-			}
-			var response packet.ControlPacket
-			switch pkt := pkt.(type) {
-			case *packet.PublishPacket:
-				pkt.Received = time.Now().UTC()
-				if pkt.TopicName != "" {
-					pkt.TopicParts = topic.Split(pkt.TopicName)
-				}
-				logger.Debug("Read PUBLISH")
-				response, err = session.HandlePublish(pkt)
-			case *packet.PubackPacket:
-				logger.Debug("Read PUBACK")
-				err = session.HandlePuback(pkt)
-			case *packet.PubrecPacket:
-				logger.Debug("Read PUBREC")
-				response, err = session.HandlePubrec(pkt)
-			case *packet.PubrelPacket:
-				logger.Debug("Read PUBREL")
-				response, err = session.HandlePubrel(pkt)
-			case *packet.PubcompPacket:
-				logger.Debug("Read PUBCOMP")
-				err = session.HandlePubcomp(pkt)
-			case *packet.SubscribePacket:
-				logger.Debug("Read SUBSCRIBE")
-				response, err = session.HandleSubscribe(pkt)
-			case *packet.UnsubscribePacket:
-				logger.Debug("Read UNSUBSCRIBE")
-				response, err = session.HandleUnsubscribe(pkt)
-			case *packet.PingreqPacket:
-				logger.Debug("Read PINGREQ")
-				response = pkt.Response()
-			case *packet.DisconnectPacket:
-				logger.Debug("Read DISCONNECT")
-				session.HandleDisconnect()
-			default:
-				logger.WithField("packet_type", fmt.Sprintf("%T", pkt)).Debug("Read unknown packet")
-				conn.Close()
-			}
-			if err != nil {
-				logger.WithError(err).Warn("Could not handle packet")
-				return err
+				close(readErr)
+				return
 			}
 			if response != nil {
-				switch response.(type) {
-				case *packet.ConnackPacket:
-					logger.Debug("Write CONNACK")
-				case *packet.PubackPacket:
-					logger.Debug("Write PUBACK")
-				case *packet.PubrecPacket:
-					logger.Debug("Write PUBREC")
-				case *packet.PubrelPacket:
-					logger.Debug("Write PUBREL")
-				case *packet.PubcompPacket:
-					logger.Debug("Write PUBCOMP")
-				case *packet.SubackPacket:
-					logger.Debug("Write SUBACK")
-				case *packet.UnsubackPacket:
-					logger.Debug("Write UNSUBACK")
-				case *packet.PingrespPacket:
-					logger.Debug("Write PINGRESP")
-				case *packet.DisconnectPacket:
-					logger.Debug("Write DISCONNECT")
-				default:
-					panic("trying to send unknown packet type")
-				}
+				logger.Debugf("Write %s packet", packet.Name[response.PacketType()])
 				control <- response
 			}
 		}
@@ -232,7 +149,7 @@ func (s *server) Handle(conn mqttnet.Conn) {
 			if ok {
 				err = readErr
 			}
-			return
+			return err
 		case pkt, ok := <-control:
 			if !ok {
 				control = nil
@@ -241,7 +158,6 @@ func (s *server) Handle(conn mqttnet.Conn) {
 			err = conn.Send(pkt)
 		case pkt, ok := <-publish:
 			if !ok {
-				kicked = true
 				return
 			}
 			logger := logger
@@ -250,118 +166,11 @@ func (s *server) Handle(conn mqttnet.Conn) {
 				logger = logger.WithField("latency", latency)
 				publishLatency.Observe(latency.Seconds())
 			}
-			pkt.TopicParts = nil
-			logger.Debug("Write PUBLISH")
+			logger.Debug("Write publish packet")
 			err = conn.Send(pkt)
 		}
 		if err != nil {
-			return
+			return err
 		}
 	}
-}
-
-func (s *server) Sessions() session.Store {
-	return s.sessions
-}
-
-var boot = time.Now()
-
-// replaceClientID replaces unwanted characters
-// "/" -> "." (because we use clientID in topic names for events)
-var replaceClientID = strings.NewReplacer("/", ".")
-
-func (s *server) HandleConnect(conn mqttnet.Conn) (session session.ServerSession, err error) {
-	logger := s.logger.WithField("remote_addr", conn.RemoteAddr().String())
-
-	// Receive the connect packet or exit
-	pkt, err := conn.Receive()
-	if err != nil {
-		return
-	}
-	connect, ok := pkt.(*packet.ConnectPacket)
-	if !ok {
-		logger.Warn("First packet is not CONNECT")
-		err = errors.New("First packet is not CONNECT")
-		return
-	}
-
-	if connect.ClientID == "" {
-		connect.ClientID = fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Since(boot))
-	} else {
-		connect.ClientID = replaceClientID.Replace(connect.ClientID)
-	}
-
-	defer func() {
-		if err != nil {
-			if code, ok := err.(packet.ConnectReturnCode); ok {
-				response := connect.Response()
-				response.ReturnCode = code
-				conn.Send(response)
-			}
-		}
-	}()
-
-	// Validate the contents of the connect packet or exit with a return code
-	if err = connect.Validate(); err != nil {
-		logger.WithError(err).Warn("Invalid Connect packet")
-		connectCounter.WithLabelValues("invalid").Inc()
-		return
-	}
-
-	logger = logger.WithField("client_id", connect.ClientID)
-	if connect.Username != "" {
-		logger = logger.WithField("username", connect.Username)
-	}
-
-	authInfo := &auth.Info{
-		RemoteAddr: conn.RemoteAddr().String(),
-		Transport:  conn.Transport(),
-		ClientID:   connect.ClientID,
-		Username:   connect.Username,
-		Password:   connect.Password,
-	}
-
-	if s.auth != nil {
-		// Authenticate the connection or exit with a return code
-		if err = s.auth.Connect(authInfo); err != nil {
-			logger.WithError(err).Warn("Login failed")
-			connectCounter.WithLabelValues("refused_login").Inc()
-			return
-		}
-	}
-
-	if connect.KeepAlive > 0 {
-		conn.SetReadTimeout(time.Duration(connect.KeepAlive) * 1500 * time.Millisecond)
-	}
-
-	// Find a matching session or create a new one
-	session = s.sessions.GetOrCreate(connect.ClientID)
-
-	// Attach the connection or exit with a return code
-	response, err := session.HandleConnect(conn, authInfo, connect)
-	if err != nil {
-		logger.WithError(err).Warn("Session failed to attach")
-		connectCounter.WithLabelValues("refused_client_id").Inc()
-		return
-	}
-
-	if response.SessionPresent {
-		logger.Info("Attach session")
-	} else {
-		logger.Info("Start session")
-	}
-	connectCounter.WithLabelValues("accepted").Inc()
-
-	// Send the connack
-	conn.Send(response)
-
-	// (Re)send pending messages
-	for _, pkt := range session.Pending() {
-		if pkt, ok := pkt.(*packet.PublishPacket); ok {
-			pkt.Duplicate = true
-		}
-		conn.Send(pkt)
-	}
-
-	return session, nil
 }
