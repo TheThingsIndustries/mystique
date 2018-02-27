@@ -160,6 +160,9 @@ func (s *session) Close() {
 		s.Deliver(s.will)
 		s.will = nil
 	}
+	s.pendingOut.Clear()
+	s.pendingIn.Clear()
+	s.subscriptions.Clear()
 }
 
 func (s *session) ReadPacket() (response packet.ControlPacket, err error) {
