@@ -45,7 +45,7 @@ clean:
 	rm -rf release
 
 $(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -gcflags="-trimpath=$(GO_PATH)" -asmflags="-trimpath=$(GO_PATH)" -a -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -gcflags="all=-trimpath=$(GO_PATH)" -asmflags="all=-trimpath=$(GO_PATH)" -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
 
 .PHONY: release
 
