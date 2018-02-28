@@ -1,4 +1,4 @@
-// Copyright © 2017 The Things Industries, distributed under the MIT license (see LICENSE file)
+// Copyright © 2018 The Things Industries, distributed under the MIT license (see LICENSE file)
 
 // Package mystique implements an MQTT server.
 // See the cmd package for the main executables.

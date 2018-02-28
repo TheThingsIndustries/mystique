@@ -1,4 +1,4 @@
-// Copyright © 2017 The Things Industries, distributed under the MIT license (see LICENSE file)
+// Copyright © 2018 The Things Industries, distributed under the MIT license (see LICENSE file)
 
 // Package ttnauth implements MQTT authentication using The Things Network's account server
 package ttnauth
