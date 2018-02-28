@@ -58,8 +58,8 @@ func (a *TTNAuth) SetLogger(logger log.Interface) {
 
 // SetCacheExpire sets the cache expiration time.
 // By default, the DefaultCacheExpire is used
-func (a *TTNAuth) SetCacheExpire(expire time.Duration) {
-	a.cache.expire = expire
+func (a *TTNAuth) SetCacheExpire(expires time.Duration) {
+	a.cache.expires = expires
 }
 
 // AddSuperUser adds a super-user to the auth plugin
@@ -143,10 +143,53 @@ func (a *TTNAuth) applicationRights(applicationID, key string) ([]string, error)
 	return a.rights("applications", applicationID, key)
 }
 
+func (a *TTNAuth) FetchAccess(username string, password []byte) (*Access, error) {
+	access := Access{}
+
+	if !idPattern.MatchString(username) {
+		return nil, packet.ConnectNotAuthorized
+	}
+	access.ReadPrefix = username
+
+	if a.applications {
+		appRights, err := a.applicationRights(username, string(password))
+		if err != nil {
+			return nil, packet.ConnectNotAuthorized
+		}
+		for _, right := range appRights {
+			switch right {
+			case "messages:up:r":
+				access.Read = append(access.Read, []string{username, "devices", topic.PartWildcard, "up"})
+				access.Read = append(access.Read, []string{username, "devices", topic.PartWildcard, "up", topic.Wildcard})
+				access.Read = append(access.Read, []string{username, "devices", topic.PartWildcard, "events"})
+				access.Read = append(access.Read, []string{username, "devices", topic.PartWildcard, "events", topic.Wildcard})
+				access.Read = append(access.Read, []string{username, "events"})
+				access.Read = append(access.Read, []string{username, "events", topic.Wildcard})
+			case "messages:down:w":
+				access.Write = append(access.Write, []string{username, "devices", "+", "down"})
+			}
+		}
+	}
+
+	if a.gateways {
+		gtwRights, err := a.gatewayRights(username, string(password))
+		if err != nil {
+			return nil, packet.ConnectNotAuthorized
+		}
+		if len(gtwRights) > 0 {
+			access.Write = append(access.Write, []string{username, "up"})
+			access.Read = append(access.Read, []string{username, "down"})
+			access.Write = append(access.Write, []string{username, "status"})
+			access.Write = append(access.Write, []string{"connect"})
+			access.Write = append(access.Write, []string{"disconnect"})
+		}
+	}
+
+	return &access, nil
+}
+
 // Connect or return error code
 func (a *TTNAuth) Connect(info *auth.Info) (err error) {
-	logger := a.logger.WithFields(log.F{"username": info.Username, "remote_addr": info.RemoteAddr})
-
 	if a.penalty > 0 {
 		defer func() {
 			if err != nil {
@@ -167,54 +210,11 @@ func (a *TTNAuth) Connect(info *auth.Info) (err error) {
 		return nil
 	}
 
-	cachedAccess := a.cache.Get(info.Username, info.Password)
-	if cachedAccess != nil {
-		logger.Debug("Using auth result from cache")
-		access = *cachedAccess
-	} else {
-		if !idPattern.MatchString(info.Username) {
-			return packet.ConnectNotAuthorized
-		}
-		access.ReadPrefix = info.Username
-
-		logger.Debug("Authenticating using account server")
-
-		if a.applications {
-			appRights, err := a.applicationRights(info.Username, string(info.Password))
-			if err != nil {
-				return packet.ConnectNotAuthorized
-			}
-			for _, right := range appRights {
-				switch right {
-				case "messages:up:r":
-					access.Read = append(access.Read, []string{info.Username, "devices", topic.PartWildcard, "up"})
-					access.Read = append(access.Read, []string{info.Username, "devices", topic.PartWildcard, "up", topic.Wildcard})
-					access.Read = append(access.Read, []string{info.Username, "devices", topic.PartWildcard, "events"})
-					access.Read = append(access.Read, []string{info.Username, "devices", topic.PartWildcard, "events", topic.Wildcard})
-					access.Read = append(access.Read, []string{info.Username, "events"})
-					access.Read = append(access.Read, []string{info.Username, "events", topic.Wildcard})
-				case "messages:down:w":
-					access.Write = append(access.Write, []string{info.Username, "devices", "+", "down"})
-				}
-			}
-		}
-
-		if a.gateways {
-			gtwRights, err := a.gatewayRights(info.Username, string(info.Password))
-			if err != nil {
-				return packet.ConnectNotAuthorized
-			}
-			if len(gtwRights) > 0 {
-				access.Write = append(access.Write, []string{info.Username, "up"})
-				access.Read = append(access.Read, []string{info.Username, "down"})
-				access.Write = append(access.Write, []string{info.Username, "status"})
-				access.Write = append(access.Write, []string{"connect"})
-				access.Write = append(access.Write, []string{"disconnect"})
-			}
-		}
-
-		a.cache.Set(info.Username, info.Password, access)
+	cachedAccess, err := a.cache.GetOrFetch(info.Username, info.Password, a.FetchAccess)
+	if err != nil {
+		return err
 	}
+	access = *cachedAccess
 
 	if access.IsEmpty() {
 		return packet.ConnectNotAuthorized
