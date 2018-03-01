@@ -97,6 +97,7 @@ type Session interface {
 func New(ctx context.Context, conn net.Conn, deliver func(*packet.PublishPacket)) Session {
 	return &session{
 		ctx:     log.NewContext(ctx, log.FromContext(ctx)),
+		start:   time.Now(),
 		conn:    conn,
 		publish: make(chan *packet.PublishPacket, PublishBufferSize),
 		deliver: deliver,
@@ -111,6 +112,7 @@ type session struct {
 	// END sync/atomig aligned
 
 	ctx     context.Context
+	start   time.Time
 	conn    net.Conn
 	publish chan *packet.PublishPacket
 	deliver func(pkt *packet.PublishPacket)
@@ -163,6 +165,10 @@ func (s *session) Close() {
 	s.pendingOut.Clear()
 	s.pendingIn.Clear()
 	s.subscriptions.Clear()
+	stats := s.Stats()
+	sessionMessages.WithLabelValues("in").Observe(float64(stats.Delivered))
+	sessionMessages.WithLabelValues("out").Observe(float64(stats.Published))
+	sessionDuration.Observe(float64(time.Since(s.start) / time.Second))
 }
 
 func (s *session) ReadPacket() (response packet.ControlPacket, err error) {
