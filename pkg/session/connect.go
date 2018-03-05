@@ -25,6 +25,7 @@ var (
 func (s *session) ReadConnect() error {
 	logger := log.FromContext(s.ctx)
 
+	s.conn.SetReadTimeout(10 * time.Second)
 	pkt, err := s.conn.Receive()
 	if err != nil {
 		return err
@@ -96,6 +97,8 @@ func (s *session) ReadConnect() error {
 
 	if connectPacket.KeepAlive > 0 {
 		s.conn.SetReadTimeout(time.Duration(connectPacket.KeepAlive) * 1500 * time.Millisecond)
+	} else {
+		s.conn.SetReadTimeout(time.Hour)
 	}
 
 	if connectPacket.Will {
