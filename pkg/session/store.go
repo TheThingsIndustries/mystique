@@ -18,10 +18,22 @@ type Store interface {
 }
 
 // SimpleStore returns a simple Store implementation and starts a goroutine that keeps the store clean
-func SimpleStore() Store { return &simpleStore{} }
+func SimpleStore() Store {
+	s := &simpleStore{}
+	stores = append(stores, s)
+	return s
+}
 
 type simpleStore struct {
 	sessions sync.Map
+}
+
+func (s *simpleStore) Count() (count uint64) {
+	s.sessions.Range(func(_ interface{}, _ interface{}) bool {
+		count++
+		return true
+	})
+	return
 }
 
 func (s *simpleStore) All() (sessions []Session) {

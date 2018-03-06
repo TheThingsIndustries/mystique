@@ -4,7 +4,7 @@ package session
 
 import "github.com/prometheus/client_golang/prometheus"
 
-var stores []Store
+var stores []*simpleStore
 
 var sessionsGauge = prometheus.NewGaugeFunc(
 	prometheus.GaugeOpts{
@@ -14,7 +14,7 @@ var sessionsGauge = prometheus.NewGaugeFunc(
 	},
 	func() (total float64) {
 		for _, store := range stores {
-			total += float64(len(store.All()))
+			total += float64(store.Count())
 		}
 		return
 	},
