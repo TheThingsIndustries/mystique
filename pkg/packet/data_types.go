@@ -52,7 +52,7 @@ func WriteByte(w io.Writer, b byte) (err error) {
 // ReadByte reads a byte from the given Reader
 func ReadByte(r io.Reader) (b byte, err error) {
 	buf := make([]byte, 1)
-	_, err = r.Read(buf)
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return
 	}
@@ -63,7 +63,7 @@ func ReadByte(r io.Reader) (b byte, err error) {
 // readFlags reads a flags byte from the given Reader
 func readFlags(r io.Reader) (f flags, err error) {
 	buf := make([]byte, 1)
-	_, err = r.Read(buf)
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return
 	}
@@ -90,7 +90,7 @@ func decodeUint16(buf []byte) uint16 {
 // ReadUint16 reads an uint16 from the given Reader
 func ReadUint16(r io.Reader) (i uint16, err error) {
 	buf := make([]byte, 2)
-	_, err = r.Read(buf)
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return
 	}
@@ -117,7 +117,7 @@ func decodeUint32(buf []byte) uint32 {
 // ReadUint32 reads an uint32 from the given Reader
 func ReadUint32(r io.Reader) (i uint32, err error) {
 	buf := make([]byte, 2)
-	_, err = r.Read(buf)
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return
 	}
@@ -149,7 +149,7 @@ func ReadBytes(r io.Reader) (b []byte, err error) {
 		return
 	}
 	b = make([]byte, length)
-	_, err = r.Read(b)
+	_, err = io.ReadFull(r, b)
 	return
 }
 
@@ -225,7 +225,7 @@ func ReadRemainingLength(r io.Reader) (value int, err error) {
 		buf        = make([]byte, 1)
 	)
 	for {
-		_, err = r.Read(buf)
+		_, err = io.ReadFull(r, buf)
 		if err != nil {
 			return
 		}

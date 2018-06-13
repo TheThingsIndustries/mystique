@@ -88,7 +88,7 @@ var ErrInvalidPacketType = errors.New("Invalid packet type")
 // Read a control packet from the Reader
 func Read(r io.Reader) (p ControlPacket, err error) {
 	b := make([]byte, 1)
-	_, err = r.Read(b)
+	_, err = io.ReadFull(r, b)
 	if err != nil {
 		return
 	}
@@ -104,7 +104,7 @@ func Read(r io.Reader) (p ControlPacket, err error) {
 	}
 	if length > 0 {
 		payload = make([]byte, length)
-		_, err = r.Read(payload)
+		_, err = io.ReadFull(r, payload)
 		if err != nil {
 			return
 		}
