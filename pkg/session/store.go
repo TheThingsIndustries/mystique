@@ -54,20 +54,21 @@ func (s *simpleStore) Delete(session Session) {
 
 func (s *simpleStore) Publish(pkt *packet.PublishPacket) {
 	workers := runtime.NumCPU()
-	queue := make(chan func(), workers)
+	var wg sync.WaitGroup
+	queue := make(chan Session, workers)
 	for i := 0; i < workers; i++ {
+		wg.Add(1)
 		go func() {
-			for publish := range queue {
-				publish()
+			for session := range queue {
+				session.Publish(pkt)
 			}
+			wg.Done()
 		}()
 	}
 	s.sessions.Range(func(_ interface{}, value interface{}) bool {
-		session := value.(Session)
-		queue <- func() {
-			session.Publish(pkt)
-		}
+		queue <- value.(Session)
 		return true
 	})
 	close(queue)
+	wg.Wait()
 }
