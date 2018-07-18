@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "api.proto";
+
+package discovery;
+
+option go_package = "github.com/TheThingsIndustries/mystique/pkg/ttnv2/discovery";
+
+service Discovery {
+  rpc Get(ttnv2.GetRequest) returns (ttnv2.Announcement);
+}

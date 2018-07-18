@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "api.proto";
+import "google/protobuf/empty.proto";
+
+package router;
+
+option go_package = "github.com/TheThingsIndustries/mystique/pkg/ttnv2/router";
+
+service Router {
+  rpc GatewayStatus(stream ttnv2.StatusMessage) returns (google.protobuf.Empty);
+  rpc Uplink(stream ttnv2.UplinkMessage) returns (google.protobuf.Empty);
+  rpc Subscribe(google.protobuf.Empty) returns (stream ttnv2.DownlinkMessage);
+}

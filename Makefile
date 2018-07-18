@@ -46,7 +46,7 @@ $(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go $(wildcard pkg/*/*.go) $(wildc
 
 .PHONY: release
 
-release: $(RELEASE_DIR)/mystique-server-$(GOOS)-$(GOARCH) $(RELEASE_DIR)/ttn-mqtt-$(GOOS)-$(GOARCH)
+release: $(RELEASE_DIR)/mystique-server-$(GOOS)-$(GOARCH) $(RELEASE_DIR)/ttn-mqtt-$(GOOS)-$(GOARCH) $(RELEASE_DIR)/ttn-mqtt-bridge-$(GOOS)-$(GOARCH)
 
 releases:
 	GOOS=linux GOARCH=amd64 make -j 2 release
@@ -62,6 +62,7 @@ docker:
 	GOOS=linux GOARCH=amd64 make -j 2 release
 	docker build --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server:latest .
 	docker build --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt:latest .
+	docker build --build-arg bin_name=ttn-mqtt-bridge -t thethingsindustries/ttn-mqtt:bridge .
 
 .PHONY: docker
 
@@ -76,3 +77,4 @@ docker-push:
 docker-push-latest:
 	docker push thethingsindustries/mystique-server:latest
 	docker push thethingsindustries/ttn-mqtt:latest
+	docker push thethingsindustries/ttn-mqtt:bridge
