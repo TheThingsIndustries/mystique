@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -14,11 +15,11 @@ type alwaysAuth struct {
 	ok bool
 }
 
-func (a alwaysAuth) Connect(info *Info) (err error) {
+func (a alwaysAuth) Connect(ctx context.Context, info *Info) (context.Context, error) {
 	if !a.ok {
-		err = errors.New("computer says no")
+		return nil, errors.New("computer says no")
 	}
-	return
+	return ctx, nil
 }
 func (a alwaysAuth) Subscribe(info *Info, requestedTopic string, requestedQoS byte) (acceptedTopic string, acceptedQoS byte, err error) {
 	if !a.ok {

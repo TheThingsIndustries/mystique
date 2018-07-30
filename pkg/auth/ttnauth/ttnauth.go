@@ -4,6 +4,7 @@
 package ttnauth
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -189,7 +190,8 @@ func (a *TTNAuth) FetchAccess(username string, password []byte) (*Access, error)
 }
 
 // Connect or return error code
-func (a *TTNAuth) Connect(info *auth.Info) (err error) {
+func (a *TTNAuth) Connect(ctx context.Context, info *auth.Info) (context.Context, error) {
+	var err error
 	if a.penalty > 0 {
 		defer func() {
 			if err != nil {
@@ -204,23 +206,23 @@ func (a *TTNAuth) Connect(info *auth.Info) (err error) {
 
 	if superUser, ok := a.superUsers[info.Username]; ok {
 		if subtle.ConstantTimeCompare(info.Password, superUser.password) != 1 {
-			return packet.ConnectNotAuthorized
+			return nil, packet.ConnectNotAuthorized
 		}
 		access = superUser.Access
-		return nil
+		return ctx, nil
 	}
 
 	cachedAccess, err := a.cache.GetOrFetch(info.Username, info.Password, a.FetchAccess)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	access = *cachedAccess
 
 	if access.IsEmpty() {
-		return packet.ConnectNotAuthorized
+		return nil, packet.ConnectNotAuthorized
 	}
 
-	return nil
+	return ctx, nil
 }
 
 // RouterAccess gives the access rights for a Router
