@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
@@ -11,8 +12,8 @@ import (
 
 // Interface for MQTT authentication
 type Interface interface {
-	// Connect or return error code
-	Connect(info *Info) error
+	// Connect, extend context or return error code
+	Connect(ctx context.Context, info *Info) (context.Context, error)
 
 	// Subscribe allows the auth plugin to replace wildcards or to lower the QoS of a subscription.
 	// For example, a client requesting a subscription to "#" may be rewritten to "foo" if they are only allowed to subscribe to that topic.

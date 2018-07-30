@@ -83,7 +83,7 @@ func (s *session) ReadConnect() error {
 	s.ctx = log.NewContext(s.ctx, logger)
 
 	if authInterface := auth.InterfaceFromContext(s.ctx); authInterface != nil {
-		if err = authInterface.Connect(s.auth); err != nil {
+		if ctx, err := authInterface.Connect(s.ctx, s.auth); err != nil {
 			if code, ok := err.(packet.ConnectReturnCode); ok {
 				connackPacket.ReturnCode = code
 				if err := s.conn.Send(connackPacket); err != nil {
@@ -92,6 +92,8 @@ func (s *session) ReadConnect() error {
 			}
 			logger.WithError(err).Debug("Rejected authentication")
 			return err
+		} else {
+			s.ctx = ctx
 		}
 	}
 

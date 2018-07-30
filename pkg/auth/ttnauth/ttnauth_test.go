@@ -3,6 +3,7 @@
 package ttnauth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -50,7 +51,8 @@ func TestTTNAuth(t *testing.T) {
 	s.AuthenticateApplications()
 	s.AddSuperUser("root", []byte("rootpass"), Access{Root: true})
 
-	a.So(s.Connect(&auth.Info{}), should.NotBeNil)
+	_, err := s.Connect(context.Background(), &auth.Info{})
+	a.So(err, should.NotBeNil)
 
 	empty := &auth.Info{
 		Interface: &TTNAuth{},
@@ -67,7 +69,8 @@ func TestTTNAuth(t *testing.T) {
 		Username: "root",
 		Password: []byte("rootpass"),
 	}
-	a.So(s.Connect(root), should.BeNil)
+	_, err = s.Connect(context.Background(), root)
+	a.So(err, should.BeNil)
 
 	a.So(root.CanRead("any"), should.BeTrue)
 	a.So(root.CanWrite("any"), should.BeTrue)
@@ -78,23 +81,27 @@ func TestTTNAuth(t *testing.T) {
 		Username: "test",
 		Password: []byte("test.incorrect"),
 	}
-	a.So(s.Connect(incorrect), should.NotBeNil)
+	_, err = s.Connect(context.Background(), incorrect)
+	a.So(err, should.NotBeNil)
 
-	a.So(s.Connect(&auth.Info{
+	_, err = s.Connect(context.Background(), &auth.Info{
 		Username: "no",
 		Password: []byte("test.app"),
-	}), should.NotBeNil)
+	})
+	a.So(err, should.NotBeNil)
 
-	a.So(s.Connect(&auth.Info{
+	_, err = s.Connect(context.Background(), &auth.Info{
 		Username: "no",
 		Password: []byte("test.gtw"),
-	}), should.NotBeNil)
+	})
+	a.So(err, should.NotBeNil)
 
 	app := &auth.Info{
 		Username: "test",
 		Password: []byte("test.app"),
 	}
-	a.So(s.Connect(app), should.BeNil)
+	_, err = s.Connect(context.Background(), app)
+	a.So(err, should.BeNil)
 
 	a.So(app.CanRead("test/devices/test/up"), should.BeTrue)
 	a.So(app.CanRead("other/devices/test/up"), should.BeFalse)
@@ -125,7 +132,8 @@ func TestTTNAuth(t *testing.T) {
 		Username: "test",
 		Password: []byte("test.gtw"),
 	}
-	a.So(s.Connect(gtw), should.BeNil)
+	_, err = s.Connect(context.Background(), gtw)
+	a.So(err, should.BeNil)
 
 	a.So(gtw.CanRead("connect"), should.BeFalse)
 	a.So(gtw.CanWrite("connect"), should.BeTrue)
