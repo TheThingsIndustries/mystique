@@ -14,7 +14,7 @@ before_install:
 - go get -u github.com/golang/dep/cmd/dep
 
 install:
-- dep ensure -v -vendor-only
+- dep ensure -v
 
 script:
 - make test
