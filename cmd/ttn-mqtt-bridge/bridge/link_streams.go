@@ -137,16 +137,20 @@ func (b *Bridge) startLink(s session.Session) *link {
 			b.logger.WithError(err).Warn("Could not get token for gateway")
 			return
 		}
-		logger.WithField("gateway_owner", gtw.Owner.Username).Info("Start Gateway Link")
-		defer logger.Info("End Gateway Link")
+		logger := logger.WithField("gateway_owner", gtw.Owner.Username)
+		logger.Info("Link gateway to Router")
+		defer logger.Info("Unlink gateway from Router")
 
 		for {
 			if l.ctx.Err() != nil {
 				return
 			}
 			err = l.runStreams()
-			if err != nil && err != context.Canceled && grpc.Code(err) != codes.Canceled {
-				logger.WithError(err).Warn("Error in gateway streams")
+			if err != nil {
+				if l.ctx.Err() != nil {
+					return
+				}
+				logger.WithError(err).Warn("Error in gateway link")
 				if grpc.Code(err) != codes.Unavailable {
 					time.Sleep(2 * time.Second) // TODO: backoff
 				} else {
