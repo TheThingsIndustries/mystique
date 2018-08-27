@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-
 type Bridge struct {
 	ctx            context.Context
 	logger         log.Interface
@@ -56,16 +55,19 @@ func (b *Bridge) All() []session.Session { return b.store.All() }
 
 // Store implements the session.Store interface -- NON-BLOCKING
 func (b *Bridge) Store(s session.Session) {
-	username := s.AuthInfo().Username
-	b.logger.Infof("Start session for %s", username)
+	authInfo := s.AuthInfo()
+	b.logger.WithFields(log.F{
+		"gateway_id":  authInfo.Username,
+		"remote_addr": authInfo.RemoteAddr,
+	}).Infof("Gateway connected to MQTT")
 	b.mu.Lock()
-	link, ok := b.links[username]
+	link, ok := b.links[authInfo.Username]
 	if !ok {
 		link = b.startLink(s)
-		b.links[username] = link
+		b.links[authInfo.Username] = link
 	}
 	link.connections++
-	gatewaysConnected.WithLabelValues(username).Inc()
+	gatewaysConnected.WithLabelValues(authInfo.Username).Inc()
 	b.mu.Unlock()
 	b.store.Store(s)
 }
@@ -73,15 +75,18 @@ func (b *Bridge) Store(s session.Session) {
 // Delete implements the session.Store interface -- NON-BLOCKING
 func (b *Bridge) Delete(s session.Session) {
 	b.store.Delete(s)
-	username := s.AuthInfo().Username
-	b.logger.Infof("End session for %s", username)
+	authInfo := s.AuthInfo()
+	b.logger.WithFields(log.F{
+		"gateway_id":  authInfo.Username,
+		"remote_addr": authInfo.RemoteAddr,
+	}).Infof("Gateway disconnected from MQTT")
 	b.mu.Lock()
-	link, ok := b.links[username]
+	link, ok := b.links[authInfo.Username]
 	if ok {
 		link.connections--
-		gatewaysDisconnected.WithLabelValues(username).Inc()
+		gatewaysDisconnected.WithLabelValues(authInfo.Username).Inc()
 		if link.connections == 0 {
-			delete(b.links, username)
+			delete(b.links, authInfo.Username)
 			link.Close()
 		}
 	}
