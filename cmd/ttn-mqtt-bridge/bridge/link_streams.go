@@ -36,9 +36,8 @@ func (l *link) runStreams() (err error) {
 	}
 	go func() {
 		empty := new(types.Empty)
-		err := uplink.RecvMsg(empty)
-		uplinkErrCh <- err
-		close(uplinkErrCh)
+		uplinkErr := uplink.RecvMsg(empty)
+		uplinkErrCh <- uplinkErr
 	}()
 
 	logger.Debug("Starting downlink stream")
@@ -48,10 +47,9 @@ func (l *link) runStreams() (err error) {
 	}
 	go func() {
 		for {
-			msg, err := downlink.Recv()
-			if err != nil {
-				downlinkErrCh <- err
-				close(downlinkErrCh)
+			msg, downlinkErr := downlink.Recv()
+			if downlinkErr != nil {
+				downlinkErrCh <- downlinkErr
 				break
 			}
 			l.downlinkCh <- msg
@@ -65,9 +63,8 @@ func (l *link) runStreams() (err error) {
 	}
 	go func() {
 		empty := new(types.Empty)
-		err := status.RecvMsg(empty)
-		statusErrCh <- err
-		close(statusErrCh)
+		statusErr := status.RecvMsg(empty)
+		statusErrCh <- statusErr
 	}()
 
 	l.streamsMu.Lock()
@@ -88,20 +85,20 @@ func (l *link) runStreams() (err error) {
 		case <-ctx.Done():
 			return ctx.Err()
 		case err := <-uplinkErrCh:
-			if err != context.Canceled && grpc.Code(err) != codes.Canceled {
-				return err
+			if grpc.Code(err) == codes.Canceled {
+				return context.Canceled
 			}
-			uplinkErrCh = nil
+			return err
 		case err := <-downlinkErrCh:
-			if err != context.Canceled && grpc.Code(err) != codes.Canceled {
-				return err
+			if grpc.Code(err) == codes.Canceled {
+				return context.Canceled
 			}
-			downlinkErrCh = nil
+			return err
 		case err := <-statusErrCh:
-			if err != context.Canceled && grpc.Code(err) != codes.Canceled {
-				return err
+			if grpc.Code(err) == codes.Canceled {
+				return context.Canceled
 			}
-			statusErrCh = nil
+			return err
 		}
 	}
 }
