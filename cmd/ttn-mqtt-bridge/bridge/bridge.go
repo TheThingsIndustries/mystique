@@ -118,8 +118,8 @@ func (b *Bridge) SendDown(gateway string, msg *ttnv2.DownlinkMessage) {
 
 // Publish implements the session.Store interface -- NON-BLOCKING
 func (b *Bridge) Publish(pkt *packet.PublishPacket) {
+	b.store.Publish(pkt)
 	if len(pkt.TopicParts) != 2 {
-		b.store.Publish(pkt)
 		return
 	}
 	var msg proto.Message
@@ -129,7 +129,6 @@ func (b *Bridge) Publish(pkt *packet.PublishPacket) {
 	case "status":
 		msg = new(ttnv2.StatusMessage)
 	default:
-		b.store.Publish(pkt)
 		return
 	}
 	err := proto.Unmarshal(pkt.Message, msg)
