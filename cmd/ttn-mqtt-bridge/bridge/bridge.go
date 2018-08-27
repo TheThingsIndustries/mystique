@@ -3,9 +3,11 @@ package bridge
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 
+	"github.com/TheThingsIndustries/mystique/pkg/auth/ttnauth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/session"
@@ -53,22 +55,26 @@ func (b *Bridge) Close() error {
 // All implements the session.Store interface -- NON-BLOCKING
 func (b *Bridge) All() []session.Session { return b.store.All() }
 
+var ttnIDRegexp = regexp.MustCompile("^" + ttnauth.IDRegexp + "$")
+
 // Store implements the session.Store interface -- NON-BLOCKING
 func (b *Bridge) Store(s session.Session) {
 	authInfo := s.AuthInfo()
-	b.logger.WithFields(log.F{
-		"gateway_id":  authInfo.Username,
-		"remote_addr": authInfo.RemoteAddr,
-	}).Infof("Gateway connected to MQTT")
-	b.mu.Lock()
-	link, ok := b.links[authInfo.Username]
-	if !ok {
-		link = b.startLink(s)
-		b.links[authInfo.Username] = link
+	if ttnIDRegexp.MatchString(authInfo.Username) {
+		b.logger.WithFields(log.F{
+			"gateway_id":  authInfo.Username,
+			"remote_addr": authInfo.RemoteAddr,
+		}).Infof("Gateway connected to MQTT")
+		b.mu.Lock()
+		link, ok := b.links[authInfo.Username]
+		if !ok {
+			link = b.startLink(s)
+			b.links[authInfo.Username] = link
+		}
+		link.connections++
+		gatewaysConnected.WithLabelValues(authInfo.Username).Inc()
+		b.mu.Unlock()
 	}
-	link.connections++
-	gatewaysConnected.WithLabelValues(authInfo.Username).Inc()
-	b.mu.Unlock()
 	b.store.Store(s)
 }
 
@@ -76,21 +82,23 @@ func (b *Bridge) Store(s session.Session) {
 func (b *Bridge) Delete(s session.Session) {
 	b.store.Delete(s)
 	authInfo := s.AuthInfo()
-	b.logger.WithFields(log.F{
-		"gateway_id":  authInfo.Username,
-		"remote_addr": authInfo.RemoteAddr,
-	}).Infof("Gateway disconnected from MQTT")
-	b.mu.Lock()
-	link, ok := b.links[authInfo.Username]
-	if ok {
-		link.connections--
-		gatewaysDisconnected.WithLabelValues(authInfo.Username).Inc()
-		if link.connections == 0 {
-			delete(b.links, authInfo.Username)
-			link.Close()
+	if ttnIDRegexp.MatchString(authInfo.Username) {
+		b.logger.WithFields(log.F{
+			"gateway_id":  authInfo.Username,
+			"remote_addr": authInfo.RemoteAddr,
+		}).Infof("Gateway disconnected from MQTT")
+		b.mu.Lock()
+		link, ok := b.links[authInfo.Username]
+		if ok {
+			link.connections--
+			gatewaysDisconnected.WithLabelValues(authInfo.Username).Inc()
+			if link.connections == 0 {
+				delete(b.links, authInfo.Username)
+				link.Close()
+			}
 		}
+		b.mu.Unlock()
 	}
-	b.mu.Unlock()
 }
 
 func (b *Bridge) getLink(username string) *link {
