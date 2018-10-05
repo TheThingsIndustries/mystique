@@ -41,6 +41,10 @@ func WithUserLimits(max int) Option {
 	return func(s *server) { s.userLimits = newLimits(max) }
 }
 
+func WithAuthRevalidation(ttl time.Duration) Option {
+	return func(s *server) { s.revalidateAuth = ttl }
+}
+
 // Server interface
 type Server interface {
 	Sessions() session.Store
@@ -61,10 +65,11 @@ func New(ctx context.Context, option ...Option) Server {
 }
 
 type server struct {
-	ctx        context.Context
-	ipLimits   *limits
-	userLimits *limits
-	sessions   session.Store
+	ctx            context.Context
+	ipLimits       *limits
+	userLimits     *limits
+	sessions       session.Store
+	revalidateAuth time.Duration
 }
 
 func (s *server) Sessions() session.Store {
@@ -141,10 +146,25 @@ func (s *server) handle(conn mqttnet.Conn) (err error) {
 		}
 	}()
 
+	authInfo := session.AuthInfo()
+	var revalidateAuth <-chan time.Time
+	var authRevalidator auth.Revalidator
+	if authInterface := auth.InterfaceFromContext(s.ctx); authInterface != nil {
+		if revalidator, ok := authInterface.(auth.Revalidator); ok {
+			authRevalidator = revalidator
+
+			t := time.NewTicker(s.revalidateAuth)
+			defer t.Stop()
+			revalidateAuth = t.C
+		}
+	}
+
 	// mainLoop
 	publish := session.PublishChan()
 	for {
 		select {
+		case <-revalidateAuth:
+			err = authRevalidator.Revalidate(session.Context(), &authInfo)
 		case readErr, ok := <-readErr:
 			if ok {
 				err = readErr

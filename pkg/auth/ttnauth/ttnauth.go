@@ -189,9 +189,7 @@ func (a *TTNAuth) FetchAccess(username string, password []byte) (*Access, error)
 	return &access, nil
 }
 
-// Connect or return error code
-func (a *TTNAuth) Connect(ctx context.Context, info *auth.Info) (context.Context, error) {
-	var err error
+func (a *TTNAuth) validate(ctx context.Context, info *auth.Info) (access *Access, err error) {
 	if a.penalty > 0 {
 		defer func() {
 			if err != nil {
@@ -199,30 +197,40 @@ func (a *TTNAuth) Connect(ctx context.Context, info *auth.Info) (context.Context
 			}
 		}()
 	}
-
-	var access Access
-	info.Metadata = &access
-	info.Interface = a
-
 	if superUser, ok := a.superUsers[info.Username]; ok {
 		if subtle.ConstantTimeCompare(info.Password, superUser.password) != 1 {
 			return nil, packet.ConnectNotAuthorized
 		}
-		access = superUser.Access
-		return ctx, nil
+		return &superUser.Access, nil
 	}
-
-	cachedAccess, err := a.cache.GetOrFetch(info.Username, info.Password, a.FetchAccess)
+	access, err = a.cache.GetOrFetch(info.Username, info.Password, a.FetchAccess)
 	if err != nil {
 		return nil, err
 	}
-	access = *cachedAccess
-
 	if access.IsEmpty() {
 		return nil, packet.ConnectNotAuthorized
 	}
+	return access, nil
+}
 
+// Connect or return error code
+func (a *TTNAuth) Connect(ctx context.Context, info *auth.Info) (context.Context, error) {
+	access, err := a.validate(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+	info.Metadata = access
+	info.Interface = a
 	return ctx, nil
+}
+
+// Revalidate the auth info or return error
+func (a *TTNAuth) Revalidate(ctx context.Context, info *auth.Info) error {
+	_, err := a.validate(ctx, info)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // RouterAccess gives the access rights for a Router

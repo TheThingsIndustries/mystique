@@ -26,6 +26,11 @@ type Interface interface {
 	CanWrite(info *Info, topic ...string) bool
 }
 
+// Revalidator interface re-validates the credentials of a long-running connection.
+type Revalidator interface {
+	Revalidate(ctx context.Context, info *Info) error
+}
+
 // Info for an MQTT user
 type Info struct {
 	Interface
