@@ -46,6 +46,7 @@ func main() {
 	auth := ttnauth.New(accountServers)
 
 	auth.SetLogger(logger)
+	bridge.SetGRPCLogger(logger.WithField("namespace", "grpc"))
 
 	ttnIDRegexp := regexp.MustCompile("^" + ttnauth.IDRegexp + "$")
 
