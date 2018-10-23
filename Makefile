@@ -17,7 +17,7 @@ SHELL := bash
 
 deps:
 	go get -u github.com/golang/dep/cmd/dep
-	dep ensure -v -vendor-only
+	dep ensure -v
 
 .PHONY: test
 
@@ -44,7 +44,7 @@ dev-cert:
 clean:
 	rm -rf release
 
-$(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go
+$(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go $(wildcard pkg/*/*.go) $(wildcard pkg/*/*/*.go) Gopkg.lock
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -gcflags="all=-trimpath=$(GO_PATH)" -asmflags="all=-trimpath=$(GO_PATH)" -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
 
 .PHONY: release

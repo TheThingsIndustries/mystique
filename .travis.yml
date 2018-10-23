@@ -1,7 +1,7 @@
 language: go
 
 go:
-- "1.10"
+- "1.11"
 
 go_import_path: github.com/TheThingsIndustries/mystique
 
@@ -10,11 +10,8 @@ cache:
   - $GOPATH/pkg/dep
   - vendor
 
-before_install:
-- go get -u github.com/golang/dep/cmd/dep
-
 install:
-- dep ensure -v
+- make deps
 
 script:
 - make test
