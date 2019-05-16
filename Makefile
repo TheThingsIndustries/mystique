@@ -9,8 +9,6 @@ endif
 
 RELEASE_DIR ?= release
 
-GO_PATH := $(shell echo $(GOPATH) | awk -F':' '{ print $$1 }')
-
 SHELL := bash
 
 .PHONY: deps
@@ -43,8 +41,8 @@ dev-cert:
 clean:
 	rm -rf release
 
-$(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go $(wildcard pkg/*/*.go) $(wildcard pkg/*/*/*.go) Gopkg.lock
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -gcflags="all=-trimpath=$(GO_PATH)" -asmflags="all=-trimpath=$(GO_PATH)" -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
+$(RELEASE_DIR)/%-$(GOOS)-$(GOARCH): cmd/%/main.go $(wildcard pkg/*/*.go) $(wildcard pkg/*/*/*.go) go.sum
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags "-s -w" -o $@$(shell go env GOEXE) $<
 
 .PHONY: release
 
@@ -62,5 +60,19 @@ releases:
 
 docker:
 	GOOS=linux GOARCH=amd64 make -j 2 release
-	docker build --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server .
-	docker build --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt .
+	docker build --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server:latest .
+	docker build --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt:latest .
+
+.PHONY: docker
+
+DOCKER_TAG ?= $(shell date '+%Y%m%d%H%M')
+
+docker-push:
+	docker tag thethingsindustries/mystique-server:latest thethingsindustries/mystique-server:$(DOCKER_TAG)
+	docker tag thethingsindustries/ttn-mqtt:latest thethingsindustries/ttn-mqtt:$(DOCKER_TAG)
+	docker push thethingsindustries/mystique-server:$(DOCKER_TAG)
+	docker push thethingsindustries/ttn-mqtt:$(DOCKER_TAG)
+
+docker-push-latest:
+	docker push thethingsindustries/mystique-server:latest
+	docker push thethingsindustries/ttn-mqtt:latest

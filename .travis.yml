@@ -15,5 +15,10 @@ install:
 
 script:
 - make test
-- make vet
-- make fmt
+- make docker
+
+after_success:
+- docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+- make docker-push
+- if [[ "$TRAVIS_EVENT_TYPE" == "push" ]] && [[ ! -z "$TRAVIS_TAG" ]]; then DOCKER_TAG="$TRAVIS_TAG" make docker-push-latest; fi
+- if [[ "$TRAVIS_EVENT_TYPE" == "push" ]] && [[ "$TRAVIS_BRANCH" == "master" ]]; then make docker-push-latest; fi
