@@ -1,14 +1,14 @@
 language: go
 
 go:
-- "1.11"
+- "1.12.x"
 
 go_import_path: github.com/TheThingsIndustries/mystique
 
-cache:
-  directories:
-  - $GOPATH/pkg/dep
-  - vendor
+env:
+  global:
+  - GOPROXY=https://proxy.golang.org
+  - GO111MODULE=on
 
 install:
 - make deps
