@@ -34,6 +34,9 @@ func (l *link) runStreams() (err error) {
 	if err != nil {
 		return err
 	}
+	if _, err = uplink.Header(); err != nil {
+		return err
+	}
 	go func() {
 		empty := new(types.Empty)
 		uplinkErr := uplink.RecvMsg(empty)
@@ -43,6 +46,9 @@ func (l *link) runStreams() (err error) {
 	logger.Debug("Starting downlink stream")
 	downlink, err := l.bridge.router.Subscribe(ctx, &types.Empty{}, grpc.PerRPCCredentials(l))
 	if err != nil {
+		return err
+	}
+	if _, err = downlink.Header(); err != nil {
 		return err
 	}
 	go func() {
@@ -59,6 +65,9 @@ func (l *link) runStreams() (err error) {
 	logger.Debug("Starting status stream")
 	status, err := l.bridge.router.GatewayStatus(ctx, grpc.PerRPCCredentials(l))
 	if err != nil {
+		return err
+	}
+	if _, err = status.Header(); err != nil {
 		return err
 	}
 	go func() {
