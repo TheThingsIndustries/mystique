@@ -71,12 +71,14 @@ func (b *Bridge) Store(s session.Session) {
 			link = b.startLink(s)
 			b.links[authInfo.Username] = link
 		}
-		link.connections++
+		link.connectionsStarted++
 		gatewaysConnected.WithLabelValues(authInfo.Username).Inc()
 		b.mu.Unlock()
 	}
 	b.store.Store(s)
 }
+
+var linkTimeout = time.Minute
 
 // Delete implements the session.Store interface -- NON-BLOCKING
 func (b *Bridge) Delete(s session.Session) {
@@ -90,11 +92,20 @@ func (b *Bridge) Delete(s session.Session) {
 		b.mu.Lock()
 		link, ok := b.links[authInfo.Username]
 		if ok {
-			link.connections--
+			link.connectionsEnded++
 			gatewaysDisconnected.WithLabelValues(authInfo.Username).Inc()
-			if link.connections == 0 {
-				delete(b.links, authInfo.Username)
-				link.Close()
+			if link.connections() == 0 {
+				connectionsStarted := link.connectionsStarted
+				// Unlink with delay to give gateway time to reconnect.
+				time.AfterFunc(linkTimeout, func() {
+					b.mu.Lock()
+					// If the link is still active, and there have been no new connections, close the link.
+					if link, ok := b.links[authInfo.Username]; ok && link.connectionsStarted == connectionsStarted {
+						delete(b.links, authInfo.Username)
+						link.Close()
+					}
+					b.mu.Unlock()
+				})
 			}
 		}
 		b.mu.Unlock()

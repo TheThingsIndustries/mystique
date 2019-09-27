@@ -12,7 +12,8 @@ import (
 type link struct {
 	bridge *Bridge
 
-	connections uint // only accessed by the bridge
+	connectionsStarted uint // only accessed by the bridge
+	connectionsEnded   uint // only accessed by the bridge
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -33,6 +34,8 @@ type link struct {
 	downlinkStream router.Router_SubscribeClient
 	statusStream   router.Router_GatewayStatusClient
 }
+
+func (l *link) connections() uint { return l.connectionsStarted - l.connectionsEnded }
 
 func (l *link) GetGateway() (*Gateway, error) {
 	l.gatewayMu.Lock()
