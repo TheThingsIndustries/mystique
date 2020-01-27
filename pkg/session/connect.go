@@ -86,11 +86,13 @@ func (s *session) ReadConnect() error {
 		if ctx, err := authInterface.Connect(s.ctx, s.auth); err != nil {
 			if code, ok := err.(packet.ConnectReturnCode); ok {
 				connackPacket.ReturnCode = code
-				if err := s.conn.Send(connackPacket); err != nil {
-					return err
-				}
+			} else {
+				connackPacket.ReturnCode = packet.ConnectNotAuthorized
 			}
 			logger.WithError(err).Debug("Rejected authentication")
+			if err := s.conn.Send(connackPacket); err != nil {
+				return err
+			}
 			return err
 		} else {
 			s.ctx = ctx
