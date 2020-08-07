@@ -19,13 +19,20 @@ type Store interface {
 
 // SimpleStore returns a simple Store implementation and starts a goroutine that keeps the store clean
 func SimpleStore() Store {
-	s := &simpleStore{}
+	s := &simpleStore{
+		packets: make(chan *packet.PublishPacket),
+	}
+	n := 2 * runtime.NumCPU()
+	for i := 0; i < n; i++ {
+		go s.work()
+	}
 	stores = append(stores, s)
 	return s
 }
 
 type simpleStore struct {
 	sessions sync.Map
+	packets  chan *packet.PublishPacket
 }
 
 func (s *simpleStore) Count() (count uint64) {
@@ -53,22 +60,15 @@ func (s *simpleStore) Delete(session Session) {
 }
 
 func (s *simpleStore) Publish(pkt *packet.PublishPacket) {
-	workers := runtime.NumCPU()
-	var wg sync.WaitGroup
-	queue := make(chan Session, workers)
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			for session := range queue {
-				session.Publish(pkt)
-			}
-			wg.Done()
-		}()
+	s.packets <- pkt
+}
+
+func (s *simpleStore) work() {
+	for pkt := range s.packets {
+		s.sessions.Range(func(_ interface{}, value interface{}) bool {
+			session := value.(Session)
+			session.Publish(pkt)
+			return true
+		})
 	}
-	s.sessions.Range(func(_ interface{}, value interface{}) bool {
-		queue <- value.(Session)
-		return true
-	})
-	close(queue)
-	wg.Wait()
 }
