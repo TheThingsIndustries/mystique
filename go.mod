@@ -12,4 +12,5 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.2
 	golang.org/x/net v0.0.0-20190514140710-3ec191127204
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 )

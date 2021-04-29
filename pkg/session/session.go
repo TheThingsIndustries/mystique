@@ -15,6 +15,7 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/net"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
 	"github.com/TheThingsIndustries/mystique/pkg/pending"
+	"github.com/TheThingsIndustries/mystique/pkg/ratelimit"
 	"github.com/TheThingsIndustries/mystique/pkg/subscription"
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
 )
@@ -178,6 +179,9 @@ func (s *session) ReadPacket() (response packet.ControlPacket, err error) {
 		if err != io.EOF {
 			logger.WithError(err).Warn("Error receiving packet")
 		}
+		return nil, err
+	}
+	if err := ratelimit.Wait(s.ctx); err != nil {
 		return nil, err
 	}
 	if err := pkt.Validate(); err != nil {

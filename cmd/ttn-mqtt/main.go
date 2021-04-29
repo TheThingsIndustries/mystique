@@ -37,6 +37,7 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/server"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -61,6 +62,7 @@ func main() {
 
 	pflag.Int("limit.ip", 0, "Connection limit per IP address")
 	pflag.Int("limit.user", 0, "Connection limit per Username")
+	pflag.Float64("limit.rate", 10, "Rate limit per connection")
 
 	mystique.Configure("ttn-mqtt")
 
@@ -124,6 +126,7 @@ func main() {
 	}
 
 	auth.SetPenalty(viper.GetDuration("auth.penalty"))
+	auth.SetRateLimit(rate.Limit(viper.GetFloat64("limit.rate")))
 
 	serverOptions := []server.Option{server.WithAuth(auth)}
 

@@ -19,7 +19,9 @@ import (
 	"github.com/TheThingsIndustries/mystique/pkg/auth"
 	"github.com/TheThingsIndustries/mystique/pkg/log"
 	"github.com/TheThingsIndustries/mystique/pkg/packet"
+	"github.com/TheThingsIndustries/mystique/pkg/ratelimit"
 	"github.com/TheThingsIndustries/mystique/pkg/topic"
+	"golang.org/x/time/rate"
 )
 
 // IDRegexp is the regular expression that matches TTN IDs
@@ -43,6 +45,7 @@ func New(servers map[string]string) *TTNAuth {
 type TTNAuth struct {
 	logger       log.Interface
 	penalty      time.Duration
+	rateLimit    rate.Limit
 	gateways     bool
 	applications bool
 	client       *http.Client
@@ -74,6 +77,11 @@ func (a *TTNAuth) AddSuperUser(username string, password []byte, access Access) 
 // SetPenalty sets the time penalty for a failed login
 func (a *TTNAuth) SetPenalty(d time.Duration) {
 	a.penalty = d
+}
+
+// SetRateLimit sets the rate limit for non-super-users.
+func (a *TTNAuth) SetRateLimit(l rate.Limit) {
+	a.rateLimit = l
 }
 
 // AuthenticateGateways enables authentication of gateways
@@ -221,6 +229,8 @@ func (a *TTNAuth) Connect(ctx context.Context, info *auth.Info) (context.Context
 	if access.IsEmpty() {
 		return nil, packet.ConnectNotAuthorized
 	}
+
+	ctx = ratelimit.New(ctx, a.rateLimit)
 
 	return ctx, nil
 }
