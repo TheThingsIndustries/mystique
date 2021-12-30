@@ -50,29 +50,32 @@ release: $(RELEASE_DIR)/mystique-server-$(GOOS)-$(GOARCH) $(RELEASE_DIR)/ttn-mqt
 
 releases:
 	GOOS=linux GOARCH=amd64 make -j 2 release
-	GOOS=linux GOARCH=386 make -j 2 release
-	GOOS=linux GOARCH=arm make -j 2 release
+	GOOS=linux GOARCH=arm64 make -j 2 release
 	GOOS=darwin GOARCH=amd64 make -j 2 release
+	GOOS=darwin GOARCH=arm64 make -j 2 release
 	GOOS=windows GOARCH=amd64 make -j 2 release
-	GOOS=windows GOARCH=386 make -j 2 release
+	GOOS=windows GOARCH=arm64 make -j 2 release
 
 .PHONY: docker
 
 docker:
 	GOOS=linux GOARCH=amd64 make -j 2 release
-	docker build --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server:latest .
-	docker build --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt:latest .
+	GOOS=linux GOARCH=arm64 make -j 2 release
+	docker buildx build --platform linux/amd64,linux/arm64 --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server:latest .
+	docker buildx build --platform linux/amd64,linux/arm64 --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt:latest .
 
 .PHONY: docker
 
 DOCKER_TAG ?= $(shell date '+%Y%m%d%H%M')
 
 docker-push:
-	docker tag thethingsindustries/mystique-server:latest thethingsindustries/mystique-server:$(DOCKER_TAG)
-	docker tag thethingsindustries/ttn-mqtt:latest thethingsindustries/ttn-mqtt:$(DOCKER_TAG)
-	docker push thethingsindustries/mystique-server:$(DOCKER_TAG)
-	docker push thethingsindustries/ttn-mqtt:$(DOCKER_TAG)
+	GOOS=linux GOARCH=amd64 make -j 2 release
+	GOOS=linux GOARCH=arm64 make -j 2 release
+	docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server:$(DOCKER_TAG) .
+	docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt:$(DOCKER_TAG) .
 
 docker-push-latest:
-	docker push thethingsindustries/mystique-server:latest
-	docker push thethingsindustries/ttn-mqtt:latest
+	GOOS=linux GOARCH=amd64 make -j 2 release
+	GOOS=linux GOARCH=arm64 make -j 2 release
+	docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg bin_name=mystique-server -t thethingsindustries/mystique-server:latest .
+	docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg bin_name=ttn-mqtt -t thethingsindustries/ttn-mqtt:latest .
