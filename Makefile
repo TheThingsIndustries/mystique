@@ -21,6 +21,12 @@ deps:
 test:
 	go test -cover ./...
 
+coverage.out: $(shell find . -name '*.go') go.mod go.sum
+	go test -cover -coverprofile $@ ./...
+
+coverage.html: coverage.out
+	go tool cover -html=$< -o $@
+
 .PHONY: vet
 
 vet:

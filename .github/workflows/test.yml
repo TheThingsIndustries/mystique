@@ -1,0 +1,48 @@
+name: Test
+
+on:
+  push:
+    paths:
+      - ".github/workflows/test.yml"
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+  pull_request:
+    paths:
+      - ".github/workflows/test.yml"
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["^1.16", "^1.17"]
+    name: Test on Go ${{ matrix.go }}
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v2
+      - name: Go Setup
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Go Module Cache
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Go Dependencies
+        run: make deps
+      - name: Go Test
+        run: make coverage.html
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage-${{ matrix.go }}
+          path: |
+            coverage.*

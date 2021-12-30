@@ -82,7 +82,8 @@ $RECYCLE.BIN/
 
 # End of https://www.gitignore.io/api/macos,linux,windows,go
 
-*.coverprofile
+/coverage.out
+/coverage.html
 /*.pem
 /dist
 /vendor/*/
