@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         binary: ["mystique-server", "ttn-mqtt"]
+        go: ["^1.19"]
     name: Build and Push Docker Image for ${{ matrix.binary }}
     steps:
       - name: Checkout
