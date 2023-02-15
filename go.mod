@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/apex/log v1.9.0
 	github.com/fsnotify/fsnotify v1.5.1
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/smartystreets/assertions v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.10.1
